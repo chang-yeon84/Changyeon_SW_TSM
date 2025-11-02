@@ -3,10 +3,9 @@ import { StyleSheet, View, Alert, Linking, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import Btnlogin from '../components/btnlogin';
 
-// 환경에 따라 다른 API URL 사용
 const API_URL = Platform.OS === 'web'
-  ? 'http://localhost:5000'  // 웹
-  : 'http://192.168.0.4:5000';  // 안드로이드 에뮬레이터
+  ? 'http://localhost:5000'
+  : 'http://192.168.0.4:5000';
 
 const NAVER_CLIENT_ID = 'dt3_A23sqxNziHXwpdkq';
 
@@ -15,6 +14,7 @@ const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // 앱: Deep Link 리스너
     const subscription = Linking.addEventListener('url', handleOpenURL);
 
     Linking.getInitialURL().then((url) => {
@@ -31,7 +31,6 @@ const LoginScreen = () => {
   const handleOpenURL = async ({ url }) => {
     console.log('받은 URL:', url);
 
-    // Deep Link에서 사용자 정보 받기
     if (url && url.includes('auth/callback')) {
       const urlObj = new URL(url);
       const userId = urlObj.searchParams.get('userId');
@@ -47,7 +46,6 @@ const LoginScreen = () => {
       }
     }
 
-    //code로 받는 경우
     if (url && url.includes('code=')) {
       const urlObj = new URL(url);
       const code = urlObj.searchParams.get('code');
@@ -58,6 +56,7 @@ const LoginScreen = () => {
       }
     }
   };
+
   const processNaverLogin = async (code, state) => {
     try {
       setIsLoading(true);
@@ -89,17 +88,19 @@ const LoginScreen = () => {
   const handleNaverLogin = () => {
     const state = Math.random().toString(36).substring(7);
 
-    // 환경에 따라 다른 Callback URL 사용
     const redirectUri = Platform.OS === 'web'
       ? 'http://localhost:5000/api/auth/naver/callback'
       : 'http://192.168.0.4:5000/api/auth/naver/callback';
 
     const naverUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${NAVER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 
-    Linking.openURL(naverUrl).catch((err) => {
-      console.error('브라우저 열기 실패:', err);
-      Alert.alert('오류', '브라우저를 열 수 없습니다.');
-    });
+    if (Platform.OS === 'web') {
+      // 웹: 같은 창에서 이동
+      window.location.href = naverUrl;
+    } else {
+      // 앱: 외부 브라우저
+      Linking.openURL(naverUrl);
+    }
   };
 
   return (
