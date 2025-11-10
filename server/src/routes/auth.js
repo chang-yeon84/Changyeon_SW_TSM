@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const User = require('../models/User');
+const User = require('../models/user');
 
 router.get('/naver/callback', async (req, res) => {
     const { code, state } = req.query;

@@ -1,21 +1,64 @@
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, View, TouchableOpacity, Text } from "react-native";
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import { useNavigation } from '../contexts/navigationContext';
 import { Ionicons } from '@expo/vector-icons';
+import DatePickerModal from '../components/date_picker_modal';
+import TimePickerModal from '../components/time_picker_modal';
+
 const sch_add = () => {
     const { setActiveTab } = useNavigation();
+
+    // 현재 시간을 HH:MM 형식으로 가져오는 함수
+    const getCurrentTime = () => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
     const [text, setText] = useState('');
-    const [time, setTime] = useState('');
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [startTime, setStartTime] = useState(getCurrentTime());
+    const [endTime, setEndTime] = useState(getCurrentTime());
     const [departureLocation, setDepartureLocation] = useState('');
     const [location, setLocation] = useState('');
     const [memo, setMemo] = useState('');
+
+    // 모달 상태
+    const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+    const [isStartTimePickerVisible, setIsStartTimePickerVisible] = useState(false);
+    const [isEndTimePickerVisible, setIsEndTimePickerVisible] = useState(false);
+
     useFocusEffect(
         useCallback(() => {
             setActiveTab();
         }, [])
     );
+
+    // 날짜 포맷팅 함수
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}.${month}.${day}`;
+    };
+
+    // 날짜 확인 핸들러
+    const handleDateConfirm = (date) => {
+        setSelectedDate(date);
+    };
+
+    // 시작 시간 확인 핸들러
+    const handleStartTimeConfirm = (time) => {
+        setStartTime(time);
+    };
+
+    // 종료 시간 확인 핸들러
+    const handleEndTimeConfirm = (time) => {
+        setEndTime(time);
+    };
     return (
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -26,12 +69,43 @@ const sch_add = () => {
                     placeholder="제목"
                     placeholderTextColor="#C7C7C7"
                 />
-                <TextInput style={styles.inputTime}
-                    value={time}
-                    onChangeText={setTime}
-                    placeholder="시간"
-                    placeholderTextColor="#C7C7C7"
-                ></TextInput>
+                <View style={styles.dateTimeContainer}>
+                    {/* 날짜 선택 */}
+                    <TouchableOpacity
+                        style={styles.dateTimeRow}
+                        onPress={() => setIsDatePickerVisible(true)}
+                    >
+                        <View style={styles.labelContainer}>
+                            <Ionicons name="calendar-outline" size={23} color="#000000ff" />
+                            <Text style={styles.labelText}>날짜</Text>
+                        </View>
+                        <Text style={styles.valueText}>{formatDate(selectedDate)}</Text>
+                    </TouchableOpacity>
+
+                    {/* 시작 시간 선택 */}
+                    <TouchableOpacity
+                        style={styles.dateTimeRow}
+                        onPress={() => setIsStartTimePickerVisible(true)}
+                    >
+                        <View style={styles.labelContainer}>
+                            <Ionicons name="time-outline" size={23} color="#00A8FF" />
+                            <Text style={styles.labelText}>시작 시간</Text>
+                        </View>
+                        <Text style={styles.valueText}>{startTime}</Text>
+                    </TouchableOpacity>
+
+                    {/* 종료 시간 선택 */}
+                    <TouchableOpacity
+                        style={styles.dateTimeRow}
+                        onPress={() => setIsEndTimePickerVisible(true)}
+                    >
+                        <View style={styles.labelContainer}>
+                            <Ionicons name="time-outline" size={23} color="#FF4757" />
+                            <Text style={styles.labelText}>종료 시간</Text>
+                        </View>
+                        <Text style={styles.valueText}>{endTime}</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
             <View style={styles.middleWhiteBox}>
                 <View style={styles.inputRow}>
@@ -66,6 +140,38 @@ const sch_add = () => {
                     placeholderTextColor="#C7C7C7"
                 />
             </View>
+
+            {/* 저장 버튼 */}
+            <TouchableOpacity style={styles.saveButton} onPress={() => console.log('저장 버튼 클릭')}>
+                <Text style={styles.saveButtonText}>저장</Text>
+            </TouchableOpacity>
+
+            {/* 날짜 선택 모달 */}
+            <DatePickerModal
+                visible={isDatePickerVisible}
+                onClose={() => setIsDatePickerVisible(false)}
+                initialDate={selectedDate}
+                onConfirm={handleDateConfirm}
+            />
+
+            {/* 시작 시간 선택 모달 */}
+            <TimePickerModal
+                visible={isStartTimePickerVisible}
+                onClose={() => setIsStartTimePickerVisible(false)}
+                initialTime={startTime}
+                onConfirm={handleStartTimeConfirm}
+                title="시작 시간 선택"
+            />
+
+            {/* 종료 시간 선택 모달 */}
+            <TimePickerModal
+                visible={isEndTimePickerVisible}
+                onClose={() => setIsEndTimePickerVisible(false)}
+                initialTime={endTime}
+                onConfirm={handleEndTimeConfirm}
+                title="종료 시간 선택"
+            />
+
             <Btm_nav_bar />
         </View>
 
@@ -79,7 +185,7 @@ const styles = StyleSheet.create({
     },
     topWhiteBox: {
         width: 392,
-        height: 180,
+        height: 270,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         elevation: 5,
@@ -88,8 +194,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
         marginTop: 50,
-
-
     },
     inputTitle: {
         fontSize: 45,
@@ -100,15 +204,40 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 20,
         marginRight: 10,
-
     },
-    inputTime: {
-        fontSize: 30,
-        color: '#000',
-        paddingVertical: 16,
-        marginLeft: 20,
-        marginRight: 10,
+    dateTimeContainer: {
+        flexDirection: 'column',
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 10,
+        gap: 0,
+    },
+    dateTimeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    labelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    labelText: {
+        fontSize: 16,
+        color: '#666',
         fontWeight: '500',
+    },
+    valueText: {
+        fontSize: 18,
+        color: '#666',
+        fontWeight: 'bold',
+        backgroundColor: '#F8F8F8',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        minWidth: 120,
+        textAlign: 'center',
     },
     middleWhiteBox: {
         width: 392,
@@ -186,6 +315,25 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 20,
         marginRight: 10,
+    },
+    saveButton: {
+        width: 392,
+        height: 56,
+        backgroundColor: '#00A8FF',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 100,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+    },
+    saveButtonText: {
+        fontSize: 20,
+        color: '#FFFFFF',
+        fontWeight: 'bold',
     }
 });
 export default sch_add

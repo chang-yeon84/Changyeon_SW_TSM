@@ -36,7 +36,7 @@ const scheduleSchema = new mongoose.Schema(
     },
     transportType: {
       type: String,
-      enum: ['walk', 'car', 'bus', 'subway', 'train', 'bicycle', 'other'],
+      enum: ['walk', 'car', 'bus', 'subway', 'bicycle', 'other'],
     },
     journeyTime: {
       type: String,
