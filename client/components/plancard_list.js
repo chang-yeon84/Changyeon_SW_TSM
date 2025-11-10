@@ -1,35 +1,38 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from "react-native";
+
 const Plancard_List = ({ time, title, location, weather, departureLocation, transport, journeyTime }) => {
     return (
         <View style={styles.cardContainer}>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.mainContent}>
-                <View style={styles.leftSection}>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="time-outline" size={18} color="#000" />
-                        <Text style={styles.infoText}>{time}</Text>
+            <View style={styles.content}>
+                <Text style={styles.title}>{title}</Text>
+                <View style={styles.mainContent}>
+                    <View style={styles.leftSection}>
+                        <View style={styles.infoRow}>
+                            <Ionicons name="time-outline" size={18} color="#000" />
+                            <Text style={styles.infoText}>{time}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Ionicons name="location-outline" size={18} color="#000" />
+                            <Text style={styles.infoText}>{location}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text>☀️</Text>
+                            <Text style={styles.infoText}>{weather}</Text>
+                        </View>
                     </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="location-outline" size={18} color="#000" />
-                        <Text style={styles.infoText}>{location}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Text>☀️</Text>
-                        <Text style={styles.infoText}>{weather}</Text>
-                    </View>
+                    {departureLocation ? (
+                        <>
+                            <View style={styles.rightSection}>
+                                <Text style={styles.tagText}>출발 : {departureLocation}</Text>
+                                <Text style={styles.transportIcon}>{transport}</Text>
+                            </View>
+                            <View style={styles.statusBadge}>
+                                <Text style={styles.statusText}>{journeyTime}</Text>
+                            </View>
+                        </>
+                    ) : null}
                 </View>
-                {departureLocation ? (
-                    <>
-                        <View style={styles.rightSection}>
-                            <Text style={styles.tagText}>출발 : {departureLocation}</Text>
-                            <Text style={styles.transportIcon}>{transport}</Text>
-                        </View>
-                        <View style={styles.statusBadge}>
-                            <Text style={styles.statusText}>{journeyTime}</Text>
-                        </View>
-                    </>
-                ) : null}
             </View>
         </View>
     )
@@ -38,10 +41,17 @@ const Plancard_List = ({ time, title, location, weather, departureLocation, tran
 const styles = StyleSheet.create({
     cardContainer: {
         width: 360,
-        borderRadius: 16,
+        height: 125,
         backgroundColor: '#7fe0faff',
-        overflow: 'hidden',
+        borderRadius: 16,
         elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    content: {
+        flex: 1,
     },
     title: {
         fontSize: 24,
@@ -49,7 +59,7 @@ const styles = StyleSheet.create({
         color: '#000',
         textAlign: 'center',
         marginBottom: 8,
-        marginTop: 5
+        marginTop: 5,
     },
     mainContent: {
         flexDirection: 'row',
@@ -70,6 +80,7 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 16,
         color: '#000',
+
     },
     rightSection: {
         flexDirection: 'row',
@@ -80,6 +91,7 @@ const styles = StyleSheet.create({
 
     tagText: {
         fontSize: 14,
+        fontWeight: 'bold',
         color: '#000',
     },
 
@@ -90,16 +102,16 @@ const styles = StyleSheet.create({
 
     statusBadge: {
         backgroundColor: '#D4FC79',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 8,
-        marginRight: 10
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 10,
+        marginRight: 10,
     },
 
     statusText: {
         fontSize: 12,
         color: '#000',
-        fontWeight: '600',
+        fontWeight: '700',
     }
 })
 export default Plancard_List;

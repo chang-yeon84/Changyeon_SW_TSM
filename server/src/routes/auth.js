@@ -39,9 +39,9 @@ router.get('/naver/callback', async (req, res) => {
             await user.save();
         }
 
-        // 앱으로 Deep Link 전송
+        // 앱으로 Deep Link 전송 (경로 없이 루트로 전송)
         console.log('앱 로그인 처리:', user.name);
-        const deepLink = `tsmapp://auth/callback?userId=${user._id}&accessToken=${accessToken}&name=${encodeURIComponent(user.name)}`;
+        const deepLink = `tsmapp://?userId=${user._id}&accessToken=${accessToken}&name=${encodeURIComponent(user.name)}&callback=true`;
 
         res.send(`
             <!DOCTYPE html>
