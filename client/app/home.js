@@ -5,13 +5,19 @@ import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import BtnSch_List from '../components/btnsch_list';
 import Plancard_Home from "../components/plancard_home";
 import { useNavigation } from '../contexts/navigationContext';
+import { useAuth } from '../contexts/authContext';
 
 const home = () => {
     const router = useRouter();
     const { setActiveTab } = useNavigation();
+    const { user } = useAuth();
+
+    console.log('[home] 렌더링 시 user 상태:', user);
+
     useFocusEffect(
         useCallback(() => {
             setActiveTab('home');
+            console.log('[home] useFocusEffect - user 상태:', user);
         }, [])
     );
     return (
