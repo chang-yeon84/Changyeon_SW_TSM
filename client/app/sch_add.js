@@ -1,14 +1,17 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, TextInput, View, TouchableOpacity, Text } from "react-native";
+import { StyleSheet, TextInput, View, TouchableOpacity, Text, Alert } from "react-native";
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import { useNavigation } from '../contexts/navigationContext';
+import { useAuth } from '../contexts/authContext';
 import { Ionicons } from '@expo/vector-icons';
 import DatePickerModal from '../components/date_picker_modal';
 import TimePickerModal from '../components/time_picker_modal';
 
 const sch_add = () => {
     const { setActiveTab } = useNavigation();
+    const { user } = useAuth();
+    const router = useRouter();
 
     // 현재 시간을 HH:MM 형식으로 가져오는 함수
     const getCurrentTime = () => {
@@ -30,6 +33,7 @@ const sch_add = () => {
     const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
     const [isStartTimePickerVisible, setIsStartTimePickerVisible] = useState(false);
     const [isEndTimePickerVisible, setIsEndTimePickerVisible] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -58,6 +62,67 @@ const sch_add = () => {
     // 종료 시간 확인 핸들러
     const handleEndTimeConfirm = (time) => {
         setEndTime(time);
+    };
+
+    // 저장 버튼 핸들러
+    const handleSave = async () => {
+        // 필수 필드 검증
+        if (!text.trim()) {
+            Alert.alert('알림', '제목을 입력해주세요.');
+            return;
+        }
+
+        try {
+            setIsSaving(true);
+
+            // Context에서 userId 가져오기
+            const userId = user.userId;
+
+            if (!userId) {
+                Alert.alert('오류', '로그인이 필요합니다.');
+                router.push('/');
+                return;
+            }
+
+            // 일정 데이터 준비
+            const scheduleData = {
+                userId,
+                title: text,
+                date: selectedDate.toISOString(),
+                startTime,
+                endTime,
+                departureLocation: departureLocation || '',
+                destinationLocation: location || '',
+                memo: memo || '',
+            };
+
+            // API 호출
+            const response = await fetch('http://192.168.0.4:5000/api/schedules', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(scheduleData),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                Alert.alert('성공', '일정이 저장되었습니다.', [
+                    {
+                        text: '확인',
+                        onPress: () => router.push('/sch_list'),
+                    },
+                ]);
+            } else {
+                Alert.alert('오류', result.message || '일정 저장에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('일정 저장 에러:', error);
+            Alert.alert('오류', '일정 저장 중 오류가 발생했습니다.');
+        } finally {
+            setIsSaving(false);
+        }
     };
     return (
         <View style={styles.container}>
@@ -142,8 +207,12 @@ const sch_add = () => {
             </View>
 
             {/* 저장 버튼 */}
-            <TouchableOpacity style={styles.saveButton} onPress={() => console.log('저장 버튼 클릭')}>
-                <Text style={styles.saveButtonText}>저장</Text>
+            <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={isSaving}
+            >
+                <Text style={styles.saveButtonText}>{isSaving ? '저장 중...' : '저장'}</Text>
             </TouchableOpacity>
 
             {/* 날짜 선택 모달 */}
@@ -334,6 +403,10 @@ const styles = StyleSheet.create({
         fontSize: 20,
         color: '#FFFFFF',
         fontWeight: 'bold',
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#B0B0B0',
+        opacity: 0.6,
     }
 });
 export default sch_add
