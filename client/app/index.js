@@ -2,9 +2,10 @@ import { Stack, useRouter } from 'expo-router';
 import { StyleSheet, View, Linking } from 'react-native';
 import { useState } from 'react';
 import Btnlogin from '../components/btnlogin';
+import API_CONFIG from '../config/api';
 
 const NAVER_CLIENT_ID = 'dt3_A23sqxNziHXwpdkq';
-const REDIRECT_URI = 'http://192.168.0.4:5000/api/auth/naver/callback';
+const REDIRECT_URI = `${API_CONFIG.BASE_URL}/api/auth/naver/callback`;
 
 const LoginScreen = () => {
   const router = useRouter();
