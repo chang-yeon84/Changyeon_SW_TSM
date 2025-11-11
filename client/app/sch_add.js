@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/authContext';
 import { Ionicons } from '@expo/vector-icons';
 import DatePickerModal from '../components/date_picker_modal';
 import TimePickerModal from '../components/time_picker_modal';
+import { API_ENDPOINTS } from '../config/api';
 
 const sch_add = () => {
     const { setActiveTab } = useNavigation();
@@ -97,7 +98,7 @@ const sch_add = () => {
             };
 
             // API 호출
-            const response = await fetch('http://192.168.0.4:5000/api/schedules', {
+            const response = await fetch(API_ENDPOINTS.SCHEDULES, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
