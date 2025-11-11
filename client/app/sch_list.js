@@ -8,6 +8,7 @@ import Btnsch_list_date from '../components/btnsch_list_date';
 import Plancard_List from '../components/plancard_list';
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
+import API_CONFIG from '../config/api';
 
 const sch_List = () => {
     const router = useRouter();
@@ -45,7 +46,7 @@ const sch_List = () => {
             const dateString = currentDate.toISOString().split('T')[0];
 
             const response = await fetch(
-                `http://192.168.0.4:5000/api/schedules/date/${dateString}?userId=${userId}`
+                `${API_CONFIG.BASE_URL}/api/schedules/date/${dateString}?userId=${userId}`
             );
 
             const result = await response.json();
