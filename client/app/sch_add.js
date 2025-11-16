@@ -35,7 +35,7 @@ const SchAdd = () => {
     const [isEndTimePickerVisible, setIsEndTimePickerVisible] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // 🔥 카카오맵 관련 상태
+    // 카카오맵 관련 상태
     const [showDepartureModal, setShowDepartureModal] = useState(false);
     const [showDestinationModal, setShowDestinationModal] = useState(false);
     const [departureData, setDepartureData] = useState({ name: '', address: '', x: '', y: '' });
@@ -144,10 +144,10 @@ const SchAdd = () => {
     return (
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
-            
+
             {/* 제목 및 날짜/시간 */}
             <View style={styles.topWhiteBox}>
-                <TextInput 
+                <TextInput
                     style={styles.inputTitle}
                     value={text}
                     onChangeText={setText}
@@ -193,15 +193,17 @@ const SchAdd = () => {
                 </View>
             </View>
 
-            {/* 🔥 출발지/도착지 (카카오맵 연동) */}
+            {/* 출발지/도착지 (카카오맵 연동) */}
             <View style={styles.middleWhiteBox}>
                 {/* 출발지 */}
-                <TouchableOpacity 
-                    style={styles.inputRow}
+                <TouchableOpacity
+                    style={styles.inputRowDeparture}
                     onPress={() => setShowDepartureModal(true)}
                     activeOpacity={0.7}
                 >
-                    <Ionicons name="location-sharp" size={24} color="#00A8FF" style={styles.iconStyleBlue} />
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="location-sharp" size={24} color="#00A8FF" />
+                    </View>
                     <View style={styles.locationTextContainer}>
                         <Text style={departureData.name ? styles.locationText : styles.locationPlaceholder}>
                             {departureData.name || '출발지'}
@@ -221,13 +223,15 @@ const SchAdd = () => {
                 </View>
 
                 {/* 도착지 */}
-                <TouchableOpacity 
-                    style={styles.inputRow}
+                <TouchableOpacity
+                    style={styles.inputRowDestination}
                     onPress={() => setShowDestinationModal(true)}
                     activeOpacity={0.7}
                 >
-                    <Ionicons name="location-sharp" size={24} color="#FF4757" style={styles.iconStyleRed} />
-                    <View style={styles.locationTextContainer}>
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="location-sharp" size={24} color="#FF4757" />
+                    </View>
+                    <View style={styles.locationTextContainerNoBorder}>
                         <Text style={destinationData.name ? styles.locationText : styles.locationPlaceholder}>
                             {destinationData.name || '도착지'}
                         </Text>
@@ -242,7 +246,7 @@ const SchAdd = () => {
 
             {/* 메모 */}
             <View style={styles.bottomWhiteBox}>
-                <TextInput 
+                <TextInput
                     style={styles.inputMemo}
                     value={memo}
                     onChangeText={setMemo}
@@ -287,7 +291,7 @@ const SchAdd = () => {
                 title="종료 시간 선택"
             />
 
-            {/* 🔥 카카오맵 장소 검색 모달 - 출발지 */}
+            {/* 카카오맵 장소 검색 모달 - 출발지 */}
             <KakaoPlaceSearch
                 visible={showDepartureModal}
                 onClose={() => setShowDepartureModal(false)}
@@ -296,7 +300,7 @@ const SchAdd = () => {
                 type="departure"
             />
 
-            {/* 🔥 카카오맵 장소 검색 모달 - 도착지 */}
+            {/* 카카오맵 장소 검색 모달 - 도착지 */}
             <KakaoPlaceSearch
                 visible={showDestinationModal}
                 onClose={() => setShowDestinationModal(false)}
@@ -372,10 +376,9 @@ const styles = StyleSheet.create({
         minWidth: 120,
         textAlign: 'center',
     },
-    // 🔥 높이 증가: 115 → 170
     middleWhiteBox: {
         width: 392,
-        height: 170,  // ← 여기 변경!
+        height: 160,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         elevation: 5,
@@ -383,41 +386,79 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-        paddingVertical: 15,  // ← 여기 추가!
+        paddingVertical: 5,
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         marginLeft: 15,
         marginRight: 15,
-        paddingVertical: 5,
+        paddingVertical: 0,
     },
-    locationTextContainer: {
+    inputRowDeparture: {
+        position: 'absolute',
+        top: -5,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginLeft: 15,
+        marginRight: 15,
+
+    },
+    inputRowDestination: {
+        position: 'absolute',
+        top: 80,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginLeft: 15,
+        marginRight: 15,
+    },
+    iconContainer: {
+        width: 24,
+        height: 24,
+        marginTop: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    locationTextContainer: { //가운데 선 paddingbottom 수정 
+        flex: 1,
+        marginLeft: 15,
+        paddingBottom: 23,
+        borderBottomWidth: 2,
+        borderBottomColor: '#E5E5E5',
+        marginTop: 20,
+    },
+    locationTextContainerNoBorder: {// 도착지 텍스트 
         flex: 1,
         marginLeft: 15,
         paddingBottom: 10,
-        borderBottomWidth: 2,
-        borderBottomColor: '#E5E5E5',
+        marginTop: 20,
     },
     locationText: {
         fontSize: 20,
         color: '#000',
         fontWeight: '500',
+
     },
     locationPlaceholder: {
-        fontSize: 20,
+        fontSize: 22,
         color: '#C7C7C7',
         fontWeight: '500',
+
     },
     addressText: {
-        fontSize: 13,  // 14 → 13 (약간 작게)
+        fontSize: 13,
         color: '#666',
-        marginTop: 4,
+        marginTop: 1,
     },
     dotLine: {
+        position: 'absolute',
         flexDirection: 'column',
-        marginVertical: 5,  // 1 → 5
-        marginLeft: 25,
+        left: 25,
+        top: 65,
     },
     dot: {
         width: 4,
@@ -425,12 +466,6 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         backgroundColor: '#C7C7C7',
         marginVertical: 2,
-    },
-    iconStyleBlue: {
-        marginTop: 5,  // 0 → 5
-    },
-    iconStyleRed: {
-        marginTop: 5,  // 0 → 5
     },
     bottomWhiteBox: {
         width: 392,

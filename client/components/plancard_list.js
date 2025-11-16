@@ -14,7 +14,7 @@ const Plancard_List = ({ time, title, location, weather, departureLocation, tran
                         </View>
                         <View style={styles.infoRow}>
                             <Ionicons name="location-outline" size={18} color="#000" />
-                            <Text style={styles.infoText}>{location}</Text>
+                            <Text style={styles.departureLocation}>{location}</Text>
                         </View>
                         <View style={styles.infoRow}>
                             <Text>☀️</Text>
@@ -41,7 +41,7 @@ const Plancard_List = ({ time, title, location, weather, departureLocation, tran
 const styles = StyleSheet.create({
     cardContainer: {
         width: 360,
-        height: 125,
+        minHeight: 125,
         backgroundColor: '#7fe0faff',
         borderRadius: 16,
         elevation: 5,
@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
+        paddingVertical: 5,
     },
     content: {
         flex: 1,
@@ -78,9 +79,13 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     infoText: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#000',
 
+    },
+    departureLocation: {
+        fontSize: 12,
+        color: '#000',
     },
     rightSection: {
         flexDirection: 'row',
@@ -90,7 +95,7 @@ const styles = StyleSheet.create({
     },
 
     tagText: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: 'bold',
         color: '#000',
     },
