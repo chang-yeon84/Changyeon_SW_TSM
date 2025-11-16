@@ -1,14 +1,427 @@
-import { StyleSheet, Text } from "react-native";
-const sch_Detail = () => {
-    return (
-        <Text style={style.header}>일정 상세정보 페이지</Text>
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
+import Btm_nav_bar from '../components/btn_btm_nav_bar';
+import { useNavigation } from '../contexts/navigationContext';
+import { useAuth } from '../contexts/authContext';
+import { API_ENDPOINTS } from '../config/api';
 
-    )
-}
-const style = StyleSheet.create({
-    header: {
-        fontSize: 30,
+const sch_Detail = () => {
+    const { setActiveTab } = useNavigation();
+    const { user } = useAuth();
+    const router = useRouter();
+    const params = useLocalSearchParams();
+    const scheduleId = params.id;
+
+    const [schedule, setSchedule] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setActiveTab();
+        fetchScheduleDetail();
+    }, [scheduleId]);
+
+    // 일정 상세 정보 불러오기
+    const fetchScheduleDetail = async () => {
+        try {
+            setLoading(true);
+
+            if (!scheduleId) {
+                Alert.alert('오류', '일정 ID가 없습니다.');
+                router.back();
+                return;
+            }
+
+            const response = await fetch(`${API_ENDPOINTS.SCHEDULES}/${scheduleId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                setSchedule(result.data);
+            } else {
+                Alert.alert('오류', result.message || '일정을 불러올 수 없습니다.');
+                router.back();
+            }
+        } catch (error) {
+            console.error('일정 불러오기 에러:', error);
+            Alert.alert('오류', '일정을 불러오는 중 오류가 발생했습니다.');
+            router.back();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 일정 삭제 핸들러
+    const handleDelete = () => {
+        Alert.alert(
+            '일정 삭제',
+            '정말로 이 일정을 삭제하시겠습니까?',
+            [
+                {
+                    text: '취소',
+                    style: 'cancel',
+                },
+                {
+                    text: '삭제',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const response = await fetch(`${API_ENDPOINTS.SCHEDULES}/${scheduleId}`, {
+                                method: 'DELETE',
+                            });
+
+                            const result = await response.json();
+
+                            if (result.success) {
+                                Alert.alert('성공', '일정이 삭제되었습니다.', [
+                                    {
+                                        text: '확인',
+                                        onPress: () => router.push('/sch_list'),
+                                    },
+                                ]);
+                            } else {
+                                Alert.alert('오류', result.message || '일정 삭제에 실패했습니다.');
+                            }
+                        } catch (error) {
+                            console.error('일정 삭제 에러:', error);
+                            Alert.alert('오류', '일정 삭제 중 오류가 발생했습니다.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // 일정 수정 페이지로 이동
+    const handleEdit = () => {
+        router.push({ pathname: '/sch_edit', params: { id: scheduleId } });
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <Stack.Screen options={{ headerShown: false }} />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#00A8FF" />
+                    <Text style={styles.loadingText}>일정 불러오는 중...</Text>
+                </View>
+                <Btm_nav_bar />
+            </View>
+        );
+    }
+
+    if (!schedule) {
+        return (
+            <View style={styles.container}>
+                <Stack.Screen options={{ headerShown: false }} />
+                <Text style={styles.errorText}>일정을 찾을 수 없습니다.</Text>
+                <Btm_nav_bar />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <Stack.Screen options={{ headerShown: false }} />
+
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                {/* 제목 및 버튼 */}
+                <View style={styles.topWhiteBox}>
+                    <Text style={styles.title}>{schedule.title}</Text>
+                    <View style={styles.buttonRow}>
+                        <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
+                            <Text style={styles.editButtonText}>수정</Text>
+                            <Ionicons name="create-outline" size={23} color="#000000ff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                            <Text style={styles.deleteButtonText}>삭제</Text>
+                            <Ionicons name="trash" size={23} color="#000000ff" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* 시간 */}
+                <View style={styles.timeWhiteBox}>
+                    <View style={styles.timeRow}>
+                        <Ionicons name="time-outline" size={24} color="#000000ff" />
+                        <Text style={styles.timeText}>{schedule.startTime} ~ {schedule.endTime}</Text>
+                    </View>
+                </View>
+
+                {/* 출발지/도착지 */}
+                <View style={styles.locationWhiteBox}>
+                    {/* 출발지 */}
+                    <View style={styles.locationRowDeparture}>
+                        <View style={styles.iconContainerDeparture}>
+                            <Ionicons name="location-sharp" size={24} color="#00A8FF" />
+                        </View>
+                        <View style={styles.locationTextContainer}>
+                            <Text style={styles.locationText}>
+                                {schedule.departureLocation || '출발지 없음'}
+                            </Text>
+                            {schedule.departureAddress && (
+                                <Text style={styles.addressText} numberOfLines={2}>
+                                    {schedule.departureAddress}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+
+                    <View style={styles.dotLine}>
+                        <View style={styles.dot} />
+                        <View style={styles.dot} />
+                        <View style={styles.dot} />
+                    </View>
+
+                    {/* 도착지 */}
+                    <View style={styles.locationRowDestination}>
+                        <View style={styles.iconContainerDestination}>
+                            <Ionicons name="location-sharp" size={24} color="#FF4757" />
+                        </View>
+                        <View style={styles.locationTextContainerNoBorder}>
+                            <Text style={styles.locationText}>
+                                {schedule.destinationLocation || '도착지 없음'}
+                            </Text>
+                            {schedule.destinationAddress && (
+                                <Text style={styles.addressText} numberOfLines={2}>
+                                    {schedule.destinationAddress}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                </View>
+
+                {/* 메모 */}
+                {schedule.memo && (
+                    <View style={styles.memoWhiteBox}>
+                        <Text style={styles.memoLabel}>메모</Text>
+                        <Text style={styles.memoText}>{schedule.memo}</Text>
+                    </View>
+                )}
+            </ScrollView>
+
+            <Btm_nav_bar />
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    scrollView: {
+        flex: 1,
+        width: '100%',
+    },
+    scrollContent: {
+        alignItems: 'center',
+        gap: 10,
+        paddingBottom: 120,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
+    },
+    loadingText: {
+        fontSize: 16,
+        color: '#666',
+    },
+    errorText: {
+        fontSize: 18,
+        color: '#666',
+        marginTop: 100,
+    },
+    topWhiteBox: {
+        width: 392,
+        height: 120,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        marginTop: 50,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        justifyContent: 'space-between',
+    },
+    title: {
+        fontSize: 35,
         fontWeight: 'bold',
+        color: '#000',
+
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        alignSelf: 'flex-end',
+    },
+    editButton: {
+
+        paddingHorizontal: 13,
+        paddingVertical: 8,
+        borderRadius: 8,
+        flexDirection: 'row',
+        gap: 5,
+    },
+    editButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#000000ff',
+
+    },
+    deleteButton: {
+
+        paddingHorizontal: 13,
+        paddingVertical: 8,
+        borderRadius: 8,
+        flexDirection: 'row',
+        gap: 5,
+    },
+    deleteButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#000000ff',
+    },
+    timeWhiteBox: {
+        width: 392,
+        height: 70,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+    },
+    timeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    timeText: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#000',
+    },
+    locationWhiteBox: {
+        width: 392,
+        height: 140,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        paddingVertical: 5,
+    },
+    locationRowDeparture: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginLeft: 15,
+        marginRight: 15,
+    },
+    locationRowDestination: {
+        position: 'absolute',
+        top: 75,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginLeft: 15,
+        marginRight: 15,
+    },
+    iconContainer: {
+        width: 24,
+        height: 24,
+        marginTop: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iconContainerDeparture: {
+        width: 24,
+        height: 24,
+        marginTop: 23,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iconContainerDestination: {
+        width: 24,
+        height: 24,
+        marginTop: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    locationTextContainer: {
+        flex: 1,
+        marginLeft: 15,
+        paddingBottom: 15,
+        borderBottomWidth: 2,
+        borderBottomColor: '#E5E5E5',
+        marginTop: 20,
+    },
+    locationTextContainerNoBorder: {
+        flex: 1,
+        marginLeft: 15,
+        paddingBottom: 5,
+        marginTop: 10,
+    },
+    locationText: {
+        fontSize: 20,
+        color: '#000',
+        fontWeight: '500',
+    },
+    addressText: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 1,
+    },
+    dotLine: {
+        position: 'absolute',
+        flexDirection: 'column',
+        left: 25,
+        top: 60,
+    },
+    dot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#C7C7C7',
+        marginVertical: 2,
+    },
+    memoWhiteBox: {
+        width: 392,
+        minHeight: 120,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        padding: 20,
+    },
+    memoLabel: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#666',
+        marginBottom: 10,
+    },
+    memoText: {
+        fontSize: 16,
+        color: '#000',
+        lineHeight: 24,
     },
 });
-export default sch_Detail
+
+export default sch_Detail;

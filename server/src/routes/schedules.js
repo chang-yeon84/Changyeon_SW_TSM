@@ -123,6 +123,34 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
+// 특정 일정 상세 조회
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const schedule = await Schedule.findById(id);
+
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: '일정을 찾을 수 없습니다.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: schedule,
+    });
+  } catch (error) {
+    console.error('일정 상세 조회 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '일정 조회에 실패했습니다.',
+      error: error.message,
+    });
+  }
+});
+
 // 일정 수정
 router.put('/:id', async (req, res) => {
   try {
