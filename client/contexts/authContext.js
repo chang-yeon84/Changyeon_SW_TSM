@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-// 메모리 기반 전역 저장소 (AuthProvider가 재마운트되어도 유지됨)
 let globalUserState = {
   userId: null,
   accessToken: null,

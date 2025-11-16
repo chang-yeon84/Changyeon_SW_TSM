@@ -1,6 +1,6 @@
 // API 서버 설정 
 const API_CONFIG = {
-    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.17:5000',
+    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.4:5000',
 };
 
 // API 엔드포인트
