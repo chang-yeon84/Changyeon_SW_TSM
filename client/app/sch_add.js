@@ -1,3 +1,4 @@
+import KakaoPlaceSearch from '../components/kakao_place_search';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, TextInput, View, TouchableOpacity, Text, Alert } from "react-native";
@@ -9,7 +10,7 @@ import DatePickerModal from '../components/date_picker_modal';
 import TimePickerModal from '../components/time_picker_modal';
 import { API_ENDPOINTS } from '../config/api';
 
-const sch_add = () => {
+const SchAdd = () => {
     const { setActiveTab } = useNavigation();
     const { user } = useAuth();
     const router = useRouter();
@@ -26,8 +27,6 @@ const sch_add = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [startTime, setStartTime] = useState(getCurrentTime());
     const [endTime, setEndTime] = useState(getCurrentTime());
-    const [departureLocation, setDepartureLocation] = useState('');
-    const [location, setLocation] = useState('');
     const [memo, setMemo] = useState('');
 
     // 모달 상태
@@ -36,10 +35,16 @@ const sch_add = () => {
     const [isEndTimePickerVisible, setIsEndTimePickerVisible] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
+    // 🔥 카카오맵 관련 상태
+    const [showDepartureModal, setShowDepartureModal] = useState(false);
+    const [showDestinationModal, setShowDestinationModal] = useState(false);
+    const [departureData, setDepartureData] = useState({ name: '', address: '', x: '', y: '' });
+    const [destinationData, setDestinationData] = useState({ name: '', address: '', x: '', y: '' });
+
     useFocusEffect(
         useCallback(() => {
             setActiveTab();
-        }, [])
+        }, [setActiveTab])
     );
 
     // 날짜 포맷팅 함수
@@ -92,8 +97,18 @@ const sch_add = () => {
                 date: selectedDate.toISOString(),
                 startTime,
                 endTime,
-                departureLocation: departureLocation || '',
-                destinationLocation: location || '',
+                departureLocation: departureData.name || '',
+                departureAddress: departureData.address || '',
+                departureCoordinates: departureData.x && departureData.y ? {
+                    x: departureData.x,
+                    y: departureData.y
+                } : null,
+                destinationLocation: destinationData.name || '',
+                destinationAddress: destinationData.address || '',
+                destinationCoordinates: destinationData.x && destinationData.y ? {
+                    x: destinationData.x,
+                    y: destinationData.y
+                } : null,
                 memo: memo || '',
             };
 
@@ -125,11 +140,15 @@ const sch_add = () => {
             setIsSaving(false);
         }
     };
+
     return (
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
+            
+            {/* 제목 및 날짜/시간 */}
             <View style={styles.topWhiteBox}>
-                <TextInput style={styles.inputTitle}
+                <TextInput 
+                    style={styles.inputTitle}
                     value={text}
                     onChangeText={setText}
                     placeholder="제목"
@@ -173,37 +192,63 @@ const sch_add = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* 🔥 출발지/도착지 (카카오맵 연동) */}
             <View style={styles.middleWhiteBox}>
-                <View style={styles.inputRow}>
+                {/* 출발지 */}
+                <TouchableOpacity 
+                    style={styles.inputRow}
+                    onPress={() => setShowDepartureModal(true)}
+                    activeOpacity={0.7}
+                >
                     <Ionicons name="location-sharp" size={24} color="#00A8FF" style={styles.iconStyleBlue} />
-                    <TextInput style={styles.inputDepartureLocation}
-                        value={departureLocation}
-                        onChangeText={setDepartureLocation}
-                        placeholder="출발지"
-                        placeholderTextColor="#C7C7C7"
-                    ></TextInput>
-                </View>
+                    <View style={styles.locationTextContainer}>
+                        <Text style={departureData.name ? styles.locationText : styles.locationPlaceholder}>
+                            {departureData.name || '출발지'}
+                        </Text>
+                        {departureData.address && (
+                            <Text style={styles.addressText} numberOfLines={1}>
+                                {departureData.address}
+                            </Text>
+                        )}
+                    </View>
+                </TouchableOpacity>
+
                 <View style={styles.dotLine}>
                     <View style={styles.dot} />
                     <View style={styles.dot} />
                     <View style={styles.dot} />
                 </View>
-                <View style={styles.inputRow}>
+
+                {/* 도착지 */}
+                <TouchableOpacity 
+                    style={styles.inputRow}
+                    onPress={() => setShowDestinationModal(true)}
+                    activeOpacity={0.7}
+                >
                     <Ionicons name="location-sharp" size={24} color="#FF4757" style={styles.iconStyleRed} />
-                    <TextInput style={styles.inputLocation}
-                        value={location}
-                        onChangeText={setLocation}
-                        placeholder="도착지"
-                        placeholderTextColor="#C7C7C7"
-                    ></TextInput>
-                </View>
+                    <View style={styles.locationTextContainer}>
+                        <Text style={destinationData.name ? styles.locationText : styles.locationPlaceholder}>
+                            {destinationData.name || '도착지'}
+                        </Text>
+                        {destinationData.address && (
+                            <Text style={styles.addressText} numberOfLines={1}>
+                                {destinationData.address}
+                            </Text>
+                        )}
+                    </View>
+                </TouchableOpacity>
             </View>
+
+            {/* 메모 */}
             <View style={styles.bottomWhiteBox}>
-                <TextInput style={styles.inputMemo}
+                <TextInput 
+                    style={styles.inputMemo}
                     value={memo}
                     onChangeText={setMemo}
                     placeholder="메모"
                     placeholderTextColor="#C7C7C7"
+                    multiline
                 />
             </View>
 
@@ -242,11 +287,29 @@ const sch_add = () => {
                 title="종료 시간 선택"
             />
 
+            {/* 🔥 카카오맵 장소 검색 모달 - 출발지 */}
+            <KakaoPlaceSearch
+                visible={showDepartureModal}
+                onClose={() => setShowDepartureModal(false)}
+                onSelectPlace={setDepartureData}
+                placeholder="출발지 검색"
+                type="departure"
+            />
+
+            {/* 🔥 카카오맵 장소 검색 모달 - 도착지 */}
+            <KakaoPlaceSearch
+                visible={showDestinationModal}
+                onClose={() => setShowDestinationModal(false)}
+                onSelectPlace={setDestinationData}
+                placeholder="도착지 검색"
+                type="destination"
+            />
+
             <Btm_nav_bar />
         </View>
+    );
+};
 
-    )
-}
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -309,9 +372,10 @@ const styles = StyleSheet.create({
         minWidth: 120,
         textAlign: 'center',
     },
+    // 🔥 높이 증가: 115 → 170
     middleWhiteBox: {
         width: 392,
-        height: 115,
+        height: 170,  // ← 여기 변경!
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         elevation: 5,
@@ -319,41 +383,41 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-
+        paddingVertical: 15,  // ← 여기 추가!
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         marginLeft: 15,
+        marginRight: 15,
+        paddingVertical: 5,
     },
-    inputDepartureLocation: {
+    locationTextContainer: {
         flex: 1,
-        fontSize: 20,
-        color: '#000',
-        marginBottom: 3,
+        marginLeft: 15,
+        paddingBottom: 10,
         borderBottomWidth: 2,
         borderBottomColor: '#E5E5E5',
-        fontWeight: '500',
-        marginLeft: 15,
-        marginRight: 10,
-        paddingBottom: 15,
-
     },
-    inputLocation: {
-        flex: 1,
+    locationText: {
         fontSize: 20,
         color: '#000',
         fontWeight: '500',
-        marginLeft: 15,
-        marginRight: 10,
-        marginTop: -25
+    },
+    locationPlaceholder: {
+        fontSize: 20,
+        color: '#C7C7C7',
+        fontWeight: '500',
+    },
+    addressText: {
+        fontSize: 13,  // 14 → 13 (약간 작게)
+        color: '#666',
+        marginTop: 4,
     },
     dotLine: {
         flexDirection: 'column',
-        marginVertical: 1,
+        marginVertical: 5,  // 1 → 5
         marginLeft: 25,
-        top: -15,
-
     },
     dot: {
         width: 4,
@@ -363,10 +427,10 @@ const styles = StyleSheet.create({
         marginVertical: 2,
     },
     iconStyleBlue: {
-        marginTop: 15,
+        marginTop: 5,  // 0 → 5
     },
     iconStyleRed: {
-        marginTop: -10,
+        marginTop: 5,  // 0 → 5
     },
     bottomWhiteBox: {
         width: 392,
@@ -378,13 +442,14 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
+        padding: 20,
     },
     inputMemo: {
-        fontSize: 30,
+        fontSize: 20,
         color: '#000',
-        fontWeight: 'bold',
-        marginLeft: 20,
-        marginRight: 10,
+        fontWeight: '500',
+        flex: 1,
+        textAlignVertical: 'top',
     },
     saveButton: {
         width: 392,
@@ -408,6 +473,7 @@ const styles = StyleSheet.create({
     saveButtonDisabled: {
         backgroundColor: '#B0B0B0',
         opacity: 0.6,
-    }
+    },
 });
-export default sch_add
+
+export default SchAdd;

@@ -1,7 +1,6 @@
 // API 서버 설정 
 const API_CONFIG = {
-    //여기 부분 ip 주소 본인 ipv4 로 수정하기 :5000 뒤에 포트는 남기고 
-    BASE_URL: 'http://192.168.0.4:5000',
+    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.17:5000',
 };
 
 // API 엔드포인트
