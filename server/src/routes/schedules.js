@@ -12,7 +12,11 @@ router.post('/', async (req, res) => {
       startTime,
       endTime,
       departureLocation,
+      departureAddress,
+      departureCoordinates,
       destinationLocation,
+      destinationAddress,
+      destinationCoordinates,
       memo,
     } = req.body;
 
@@ -30,9 +34,13 @@ router.post('/', async (req, res) => {
       date: new Date(date),
       startTime,
       endTime,
-      departureLocation,
-      destinationLocation,
-      memo,
+      departureLocation: departureLocation || '',
+      departureAddress: departureAddress || '',
+      departureCoordinates: departureCoordinates || null,
+      destinationLocation: destinationLocation || '',
+      destinationAddress: destinationAddress || '',
+      destinationCoordinates: destinationCoordinates || null,
+      memo: memo || '',
     });
 
     await newSchedule.save();
@@ -115,16 +123,74 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
+// 특정 일정 상세 조회
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const schedule = await Schedule.findById(id);
+
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: '일정을 찾을 수 없습니다.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: schedule,
+    });
+  } catch (error) {
+    console.error('일정 상세 조회 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '일정 조회에 실패했습니다.',
+      error: error.message,
+    });
+  }
+});
+
 // 일정 수정
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const {
+      title,
+      date,
+      startTime,
+      endTime,
+      departureLocation,
+      departureAddress,
+      departureCoordinates,
+      destinationLocation,
+      destinationAddress,
+      destinationCoordinates,
+      memo,
+    } = req.body;
 
-    const updatedSchedule = await Schedule.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    // 업데이트할 데이터 구성
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (date !== undefined) updateData.date = new Date(date);
+    if (startTime !== undefined) updateData.startTime = startTime;
+    if (endTime !== undefined) updateData.endTime = endTime;
+    if (departureLocation !== undefined) updateData.departureLocation = departureLocation;
+    if (departureAddress !== undefined) updateData.departureAddress = departureAddress;
+    if (departureCoordinates !== undefined) updateData.departureCoordinates = departureCoordinates;
+    if (destinationLocation !== undefined) updateData.destinationLocation = destinationLocation;
+    if (destinationAddress !== undefined) updateData.destinationAddress = destinationAddress;
+    if (destinationCoordinates !== undefined) updateData.destinationCoordinates = destinationCoordinates;
+    if (memo !== undefined) updateData.memo = memo;
+
+    const updatedSchedule = await Schedule.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updatedSchedule) {
       return res.status(404).json({

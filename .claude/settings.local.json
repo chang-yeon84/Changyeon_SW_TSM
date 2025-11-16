@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

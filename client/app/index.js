@@ -1,9 +1,8 @@
 import { Stack, useRouter } from 'expo-router';
-import { StyleSheet, View, Linking } from 'react-native';
+import { Image, StyleSheet, View, Linking } from 'react-native';
 import { useState } from 'react';
 import Btnlogin from '../components/btnlogin';
 import API_CONFIG from '../config/api';
-
 const NAVER_CLIENT_ID = 'dt3_A23sqxNziHXwpdkq';
 const REDIRECT_URI = `${API_CONFIG.BASE_URL}/api/auth/naver/callback`;
 
@@ -22,7 +21,13 @@ const LoginScreen = () => {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
+      <Image
+        source={require('../assets/icons/index_icon.png')}
+        style={styles.icon}
+        resizeMode="contain"
+      />
       <Btnlogin onPress={handleNaverLogin} disabled={isLoading} />
+
     </View>
   );
 };
@@ -33,6 +38,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  icon: {
+    width: '70%',
+    height: '70%',
+    marginTop: -200,
+  }
 });
 
 export default LoginScreen;
