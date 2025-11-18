@@ -94,7 +94,7 @@ const sch_Detail = () => {
 
     // 일정 수정 페이지로 이동
     const handleEdit = () => {
-        router.push({ pathname: '/sch_edit', params: { id: scheduleId } });
+        router.push({ pathname: '/sch_add', params: { id: scheduleId } });
     };
 
     if (loading) {
@@ -192,9 +192,12 @@ const sch_Detail = () => {
                 </View>
 
                 {/* 메모 */}
-                {schedule.memo && (
+                {schedule.memo && schedule.memo.trim() !== '' && (
                     <View style={styles.memoWhiteBox}>
-                        <Text style={styles.memoLabel}>메모</Text>
+                        <View style={styles.memorow}>
+                            <Ionicons name="document-text-outline" size={24} />
+                        </View>
+                        <View style={styles.memoDivider} />
                         <Text style={styles.memoText}>{schedule.memo}</Text>
                     </View>
                 )}
@@ -411,11 +414,17 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         padding: 20,
     },
-    memoLabel: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#666',
-        marginBottom: 10,
+    memorow: {
+        flexDirection: 'row',
+        gap: 3,
+        marginBottom: 5,
+
+    },
+    memoDivider: {
+        width: '100%',
+        height: 1,
+        backgroundColor: '#E5E5E5',
+        marginBottom: 15,
     },
     memoText: {
         fontSize: 16,
