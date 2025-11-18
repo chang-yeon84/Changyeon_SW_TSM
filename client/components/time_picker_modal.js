@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,15 @@ const TimePickerModal = ({ visible, onClose, initialTime = '09:00', onConfirm, t
 
   const hourScrollRef = useRef(null);
   const minuteScrollRef = useRef(null);
+
+  // initialTime이 변경되면 state 업데이트
+  useEffect(() => {
+    if (visible) {
+      const [hour, minute] = initialTime.split(':');
+      setSelectedHour(hour);
+      setSelectedMinute(minute);
+    }
+  }, [visible, initialTime]);
 
   const handleHourScroll = (event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
