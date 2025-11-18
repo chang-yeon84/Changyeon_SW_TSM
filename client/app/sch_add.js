@@ -1,6 +1,6 @@
 import KakaoPlaceSearch from '../components/kakao_place_search';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Stack, useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState, useEffect } from 'react';
 import { StyleSheet, TextInput, View, TouchableOpacity, Text, Alert } from "react-native";
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import { useNavigation } from '../contexts/navigationContext';
@@ -14,6 +14,8 @@ const SchAdd = () => {
     const { setActiveTab } = useNavigation();
     const { user } = useAuth();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const scheduleId = params.id; // 수정 모드일 때 전달받는 ID
 
     // 현재 시간을 HH:MM 형식으로 가져오는 함수
     const getCurrentTime = () => {
@@ -46,6 +48,56 @@ const SchAdd = () => {
             setActiveTab();
         }, [setActiveTab])
     );
+
+    // 수정 모드일 때 기존 데이터 불러오기
+    useEffect(() => {
+        const loadScheduleData = async () => {
+            if (!scheduleId) return; // 생성 모드
+
+            try {
+                const response = await fetch(`${API_ENDPOINTS.SCHEDULES}/${scheduleId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const schedule = result.data;
+                    setText(schedule.title);
+                    setSelectedDate(new Date(schedule.date));
+                    setStartTime(schedule.startTime);
+                    setEndTime(schedule.endTime);
+                    setMemo(schedule.memo || '');
+
+                    // 출발지 데이터 설정
+                    if (schedule.departureLocation) {
+                        setDepartureData({
+                            name: schedule.departureLocation,
+                            address: schedule.departureAddress || '',
+                            x: schedule.departureCoordinates?.x || '',
+                            y: schedule.departureCoordinates?.y || '',
+                        });
+                    }
+
+                    // 도착지 데이터 설정
+                    if (schedule.destinationLocation) {
+                        setDestinationData({
+                            name: schedule.destinationLocation,
+                            address: schedule.destinationAddress || '',
+                            x: schedule.destinationCoordinates?.x || '',
+                            y: schedule.destinationCoordinates?.y || '',
+                        });
+                    }
+                } else {
+                    Alert.alert('오류', '일정을 불러올 수 없습니다.');
+                    router.back();
+                }
+            } catch (error) {
+                console.error('일정 불러오기 에러:', error);
+                Alert.alert('오류', '일정을 불러오는 중 오류가 발생했습니다.');
+                router.back();
+            }
+        };
+
+        loadScheduleData();
+    }, [scheduleId]);
 
     // 날짜 포맷팅 함수
     const formatDate = (date) => {
@@ -112,9 +164,16 @@ const SchAdd = () => {
                 memo: memo || '',
             };
 
+            // 수정 모드인지 생성 모드인지 확인
+            const isEditMode = !!scheduleId;
+            const url = isEditMode
+                ? `${API_ENDPOINTS.SCHEDULES}/${scheduleId}`
+                : API_ENDPOINTS.SCHEDULES;
+            const method = isEditMode ? 'PUT' : 'POST';
+
             // API 호출
-            const response = await fetch(API_ENDPOINTS.SCHEDULES, {
-                method: 'POST',
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -124,10 +183,17 @@ const SchAdd = () => {
             const result = await response.json();
 
             if (result.success) {
-                Alert.alert('성공', '일정이 저장되었습니다.', [
+                const message = isEditMode ? '일정이 수정되었습니다.' : '일정이 저장되었습니다.';
+                Alert.alert('성공', message, [
                     {
                         text: '확인',
-                        onPress: () => router.push('/sch_list'),
+                        onPress: () => {
+                            if (isEditMode) {
+                                router.back(); // 수정 모드면 이전 페이지(상세페이지)로
+                            } else {
+                                router.push('/sch_list'); // 생성 모드면 목록으로
+                            }
+                        },
                     },
                 ]);
             } else {
