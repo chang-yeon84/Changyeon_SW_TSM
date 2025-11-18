@@ -1,79 +1,122 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, ScrollView } from 'react-native';
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import BtnSch_List from '../components/btnsch_list';
 import Plancard_Home from "../components/plancard_home";
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
+import { API_ENDPOINTS } from '../config/api';
+import { Ionicons } from '@expo/vector-icons';
 
 const home = () => {
     const router = useRouter();
     const { setActiveTab } = useNavigation();
     const { user } = useAuth();
+    const [schedules, setSchedules] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     console.log('[home] 렌더링 시 user 상태:', user);
+
+    // 오늘 날짜의 일정 불러오기
+    const fetchTodaySchedules = async () => {
+        try {
+            setLoading(true);
+            const userId = user?.userId;
+
+            if (!userId) {
+                console.log('사용자 ID가 없습니다.');
+                setLoading(false);
+                return;
+            }
+
+            const today = new Date();
+            const dateString = today.toISOString().split('T')[0];
+
+            const response = await fetch(
+                `${API_ENDPOINTS.SCHEDULES}/date/${dateString}?userId=${userId}`
+            );
+
+            const result = await response.json();
+
+            if (result.success) {
+                setSchedules(result.data);
+            } else {
+                console.error('일정 조회 실패:', result.message);
+                setSchedules([]);
+            }
+        } catch (error) {
+            console.error('일정 불러오기 에러:', error);
+            setSchedules([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useFocusEffect(
         useCallback(() => {
             setActiveTab('home');
             console.log('[home] useFocusEffect - user 상태:', user);
-        }, [])
+            if (user?.userId) {
+                fetchTodaySchedules();
+            }
+        }, [user])
     );
     return (
-
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
-            < View style={styles.whiteBox}>
-                < Text style={styles.header}>오늘의 일정</Text>
+            <View style={styles.whiteBox}>
+                <Text style={styles.header}>오늘의 일정</Text>
 
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#00A8FF" />
+                        <Text style={styles.loadingText}>일정 불러오는 중...</Text>
+                    </View>
+                ) : (
+                    <>
+                        <Text style={styles.subHeader}>
+                            <Text style={styles.planCount}>{schedules.length}</Text> 개의 일정이 있습니다.
+                        </Text>
 
-                < Text style={styles.subHeader}>
-                    <Text style={styles.planCount}>3</Text> 개의 일정이 있습니다.
-                </Text>
-
-                <View style={styles.buttonContainer}>
-                    <BtnSch_List
-                        onPress={() => router.push('sch_list')}
-                    />
-                </View>
-                <View style={styles.allPlanSections}>
-                    <TouchableOpacity
-                        onPress={() => router.push({ pathname: "/sch_detail", params: { id: 0 } })}
-                        activeOpacity={1}
-                    >
-                        <View style={styles.planSection1}>
-                            <Plancard_Home
-                                time="09:00"
-                                title="아침 운동"
-                                location="뚝섬 한강 공원"
+                        <View style={styles.buttonContainer}>
+                            <BtnSch_List
+                                onPress={() => router.push('sch_list')}
                             />
                         </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => router.push({ pathname: "/sch_detail", params: { id: 1 } })}
-                        activeOpacity={1}
-                    >
-                        <View style={styles.planSection2}>
-                            <Plancard_Home
-                                time="12:00"
-                                title="점심 약속"
-                                location="밀플랜비 인하대점"
-                            />
-                        </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => router.replace({ pathname: "/sch_detail", params: { id: 2 } })}
-                    >
-                        <View style={styles.planSection3}>
-                            <Plancard_Home
-                                time="17:00"
-                                title="아르바이트"
-                                location="인하대병원"
-                            />
-                        </View>
-                    </TouchableOpacity>
-                </View>
+
+                        <ScrollView
+                            style={styles.scrollContainer}
+                            contentContainerStyle={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {schedules.length === 0 ? (
+                                <View style={styles.emptyContainer}>
+                                    <Ionicons name="calendar-outline" size={60} color="#C7C7C7" />
+                                    <Text style={styles.emptyText}>오늘은 일정이 없습니다</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.allPlanSections}>
+                                    {schedules.map((schedule, index) => (
+                                        <TouchableOpacity
+                                            key={schedule._id}
+                                            onPress={() => router.push({ pathname: "/sch_detail", params: { id: schedule._id } })}
+                                            activeOpacity={1}
+                                        >
+                                            <View style={styles.planSection}>
+                                                <Plancard_Home
+                                                    time={schedule.startTime}
+                                                    title={schedule.title}
+                                                    location={schedule.destinationLocation || schedule.departureLocation || '위치 없음'}
+                                                />
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </ScrollView>
+                    </>
+                )}
             </View>
             <Btm_nav_bar />
         </View>
@@ -85,7 +128,6 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
     },
-
     whiteBox: {
         width: 392,
         height: 470,
@@ -96,8 +138,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-        marginTop: 50
-
+        marginTop: 50,
     },
     header: {
         fontSize: 40,
@@ -105,8 +146,7 @@ const styles = StyleSheet.create({
         color: '#000',
         justifyContent: 'flex-start',
         marginLeft: 20,
-        marginTop: 20
-
+        marginTop: 20,
     },
     subHeader: {
         fontSize: 18,
@@ -118,21 +158,42 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#000',
     },
-    allPlanSections: {
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
+        marginTop: 100,
+    },
+    loadingText: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 10,
+    },
+    scrollContainer: {
+        flex: 1,
         marginTop: 20,
     },
-    planSection1: {
-        marginBottom: 10,
-
+    scrollContent: {
+        flexGrow: 1,
     },
-    planSection2: {
-        marginBottom: 10,
-
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        gap: 15,
+        flex: 1,
     },
-    planSection3: {
-        marginBottom: 10,
-
+    emptyText: {
+        fontSize: 16,
+        color: '#999',
+        fontWeight: '500',
+    },
+    allPlanSections: {
+        alignItems: 'center',
+        gap: 10,
+    },
+    planSection: {
+        marginBottom: 0,
     },
     buttonContainer: {
         position: 'absolute',
