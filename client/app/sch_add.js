@@ -188,11 +188,7 @@ const SchAdd = () => {
                     {
                         text: '확인',
                         onPress: () => {
-                            if (isEditMode) {
-                                router.back(); // 수정 모드면 이전 페이지(상세페이지)로
-                            } else {
-                                router.push('/sch_list'); // 생성 모드면 목록으로
-                            }
+                            router.push('/sch_list'); // 저장/수정 완료 후 목록으로 이동
                         },
                     },
                 ]);
