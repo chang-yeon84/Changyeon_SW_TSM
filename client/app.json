@@ -17,6 +17,10 @@
     ],
     "android": {
       "package": "com.yourcompany.tsmapp",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -31,6 +35,21 @@
           ]
         }
       ]
-    }
+    },
+    "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "이 앱은 현재 위치의 날씨 정보를 제공하기 위해 위치 권한이 필요합니다."
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "이 앱은 현재 위치의 날씨 정보를 제공하기 위해 위치 권한이 필요합니다."
+        }
+      ],
+      "expo-router",
+      "expo-web-browser"
+    ]
   }
 }
