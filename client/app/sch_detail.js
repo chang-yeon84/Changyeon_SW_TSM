@@ -6,6 +6,7 @@ import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
 import { API_ENDPOINTS } from '../config/api';
+import API_CONFIG from '../config/api';
 
 const sch_Detail = () => {
     const { setActiveTab } = useNavigation();
@@ -16,11 +17,49 @@ const sch_Detail = () => {
 
     const [schedule, setSchedule] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [weather, setWeather] = useState(null);
 
     useEffect(() => {
         setActiveTab();
         fetchScheduleDetail();
     }, [scheduleId]);
+
+    // 옷차림 추천
+    const getClothingRecommendation = (temp) => {
+        if (temp >= 28) return '민소매, 반팔';
+        if (temp >= 23) return '반팔, 얇은 셔츠';
+        if (temp >= 20) return '얇은 가디건, 긴팔';
+        if (temp >= 17) return '얇은 니트, 맨투맨';
+        if (temp >= 12) return '자켓, 가디건';
+        if (temp >= 9) return '트렌치코트, 야상';
+        if (temp >= 5) return '코트, 가죽자켓';
+        return '패딩, 두꺼운 코트';
+    };
+
+    // 날씨 아이콘 매핑
+    const getWeatherIcon = (iconCode) => {
+        const iconMap = {
+            '01d': { name: 'sunny', color: '#FFD700' },
+            '01n': { name: 'moon', color: '#F0E68C' },
+            '02d': { name: 'partly-sunny', color: '#FFA500' },
+            '02n': { name: 'cloudy-night', color: '#D3D3D3' },
+            '03d': { name: 'cloud', color: '#E0E0E0' },
+            '03n': { name: 'cloud', color: '#C0C0C0' },
+            '04d': { name: 'cloudy', color: '#B0B0B0' },
+            '04n': { name: 'cloudy', color: '#A0A0A0' },
+            '09d': { name: 'rainy', color: '#87CEEB' },
+            '09n': { name: 'rainy', color: '#6495ED' },
+            '10d': { name: 'rainy', color: '#4682B4' },
+            '10n': { name: 'rainy', color: '#4169E1' },
+            '11d': { name: 'thunderstorm', color: '#FFD700' },
+            '11n': { name: 'thunderstorm', color: '#FFA500' },
+            '13d': { name: 'snow', color: '#FFFFFF' },
+            '13n': { name: 'snow', color: '#F0F8FF' },
+            '50d': { name: 'cloud', color: '#D3D3D3' },
+            '50n': { name: 'cloud', color: '#C0C0C0' },
+        };
+        return iconMap[iconCode] || { name: 'cloud', color: '#FFFFFF' };
+    };
 
     // 일정 상세 정보 불러오기
     const fetchScheduleDetail = async () => {
@@ -38,6 +77,7 @@ const sch_Detail = () => {
 
             if (result.success) {
                 setSchedule(result.data);
+                fetchWeatherForSchedule(result.data);
             } else {
                 Alert.alert('오류', result.message || '일정을 불러올 수 없습니다.');
                 router.back();
@@ -48,6 +88,46 @@ const sch_Detail = () => {
             router.back();
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 출발지 좌표로 날씨 가져오기
+    const fetchWeatherForSchedule = async (scheduleData) => {
+        try {
+            // 출발지 좌표 우선, 없으면 도착지 좌표 사용
+            const coordinates = scheduleData.departureCoordinates || scheduleData.destinationCoordinates;
+
+            if (!coordinates || !coordinates.x || !coordinates.y) {
+                console.log('좌표 정보가 없습니다.');
+                return;
+            }
+
+            // 카카오맵 좌표는 x(경도), y(위도) 형식
+            const lat = coordinates.y;
+            const lon = coordinates.x;
+
+            // 날씨 API 호출
+            const weatherResponse = await fetch(
+                `${API_ENDPOINTS.WEATHER}?lat=${lat}&lon=${lon}&appid=${API_CONFIG.OPENWEATHER_API_KEY}&units=metric&lang=kr`
+            );
+
+            const weatherData = await weatherResponse.json();
+
+            if (weatherResponse.ok) {
+                const formattedWeather = {
+                    temp: Math.round(weatherData.main.temp),
+                    description: weatherData.weather[0].description,
+                    city: weatherData.name,
+                    icon: weatherData.weather[0].icon,
+                    clouds: weatherData.clouds.all,
+                    humidity: weatherData.main.humidity,
+                };
+                setWeather(formattedWeather);
+            } else {
+                console.error('날씨 API 오류:', weatherData);
+            }
+        } catch (error) {
+            console.error('날씨 불러오기 에러:', error);
         }
     };
 
@@ -156,11 +236,11 @@ const sch_Detail = () => {
                             <Ionicons name="location-sharp" size={24} color="#00A8FF" />
                         </View>
                         <View style={styles.locationTextContainer}>
-                            <Text style={styles.locationText}>
+                            <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
                                 {schedule.departureLocation || '출발지 없음'}
                             </Text>
                             {schedule.departureAddress && (
-                                <Text style={styles.addressText} numberOfLines={2}>
+                                <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="tail">
                                     {schedule.departureAddress}
                                 </Text>
                             )}
@@ -199,6 +279,46 @@ const sch_Detail = () => {
                         </View>
                         <View style={styles.memoDivider} />
                         <Text style={styles.memoText}>{schedule.memo}</Text>
+                    </View>
+                )}
+
+                {/* 날씨 정보 */}
+                {weather && (
+                    <View style={styles.weatherBox}>
+                        <View style={styles.weatherHeader}>
+                            <Ionicons name="time-outline" size={18} color="#FFFFFF" style={styles.weatherTimeIcon} />
+                            <Text style={styles.weatherHeaderText}>
+                                <Text style={styles.weatherTimeText}>
+                                    {schedule.startTime}
+                                </Text>
+                                {'  '}
+                                <Text style={styles.weatherLocationText}>
+                                    {schedule.departureLocation || schedule.destinationLocation}
+                                </Text>
+                                의 날씨
+                            </Text>
+                        </View>
+                        <View style={styles.weatherContent}>
+                            <Ionicons
+                                name={getWeatherIcon(weather.icon).name}
+                                size={70}
+                                color={getWeatherIcon(weather.icon).color}
+                            />
+                            <View style={styles.weatherTextContainer}>
+                                <Text style={styles.weatherTemp}>{weather.temp}°</Text>
+                                <Text style={styles.weatherDescription}>{weather.description}</Text>
+                            </View>
+                            <View style={styles.weatherInfoRight}>
+                                <View style={styles.infoBox}>
+                                    <Ionicons name="cloud-outline" size={18} color="#FFFFFF" />
+                                    <Text style={styles.infoText}>구름 {weather.clouds}%</Text>
+                                </View>
+                                <View style={styles.infoBox}>
+                                    <Ionicons name="shirt-outline" size={18} color="#FFFFFF" />
+                                    <Text style={styles.infoText}>{getClothingRecommendation(weather.temp)}</Text>
+                                </View>
+                            </View>
+                        </View>
                     </View>
                 )}
             </ScrollView>
@@ -314,7 +434,7 @@ const styles = StyleSheet.create({
     },
     locationWhiteBox: {
         width: 392,
-        height: 140,
+        height: 150,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         elevation: 5,
@@ -361,7 +481,7 @@ const styles = StyleSheet.create({
     iconContainerDestination: {
         width: 24,
         height: 24,
-        marginTop: 15,
+        marginTop: 30,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -377,7 +497,7 @@ const styles = StyleSheet.create({
         flex: 1,
         marginLeft: 15,
         paddingBottom: 5,
-        marginTop: 10,
+        marginTop: 20,
     },
     locationText: {
         fontSize: 20,
@@ -393,7 +513,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         flexDirection: 'column',
         left: 25,
-        top: 60,
+        top: 70,
     },
     dot: {
         width: 4,
@@ -430,6 +550,74 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#000',
         lineHeight: 24,
+    },
+    weatherBox: {
+        width: 392,
+        backgroundColor: '#5bb5edff',
+        borderRadius: 16,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        padding: 20,
+        paddingTop: 15,
+    },
+    weatherHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    weatherTimeIcon: {
+        marginRight: 6,
+    },
+    weatherHeaderText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
+    weatherTimeText: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    weatherLocationText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    weatherContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 20,
+    },
+    weatherTextContainer: {
+        flex: 1,
+    },
+    weatherTemp: {
+        fontSize: 40,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    weatherDescription: {
+        fontSize: 16,
+        color: '#FFFFFF',
+        marginTop: 5,
+    },
+    weatherInfoRight: {
+        position: 'absolute',
+        right: 0,
+        bottom: 0,
+        gap: 6,
+        alignItems: 'flex-end',
+    },
+    infoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#FFFFFF',
+        fontWeight: '500',
     },
 });
 

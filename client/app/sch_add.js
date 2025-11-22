@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
         flex: 1,
         marginLeft: 15,
         paddingBottom: 10,
-        marginTop: 20,
+        marginTop: 10,
     },
     locationText: {
         fontSize: 20,
