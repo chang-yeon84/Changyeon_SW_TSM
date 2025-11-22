@@ -30,9 +30,25 @@ const scheduleSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    departureAddress: {
+      type: String,
+      trim: true,
+    },
+    departureCoordinates: {
+      x: { type: String },
+      y: { type: String },
+    },
     destinationLocation: {
       type: String,
       trim: true,
+    },
+    destinationAddress: {
+      type: String,
+      trim: true,
+    },
+    destinationCoordinates: {
+      x: { type: String },
+      y: { type: String },
     },
     transportType: {
       type: String,
