@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Btnlogin from '../components/btnlogin';
 import API_CONFIG from '../config/api';
 const NAVER_CLIENT_ID = 'dt3_A23sqxNziHXwpdkq';
-const REDIRECT_URI = `${API_CONFIG.BASE_URL}/api/auth/naver/callback`;
+const REDIRECT_URI = `${API_CONFIG.BASE_URL}/auth/naver/callback`;
 
 const LoginScreen = () => {
   const router = useRouter();
