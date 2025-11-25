@@ -81,18 +81,12 @@ router.get('/naver/callback', async (req, res) => {
             <html>
                 <head>
                     <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>로그인 중...</title>
                 </head>
                 <body>
-                    <h2>로그인 처리 중...</h2>
-                    <p>${user.name}님, 잠시만 기다려주세요.</p>
-                    <p>앱으로 돌아가는 중입니다...</p>
                     <script>
                         window.location.href = '${deepLink}';
-
-                        setTimeout(function() {
-                            document.body.innerHTML = '<h2>로그인 완료!</h2><p>앱을 확인해주세요.</p>';
-                        }, 2000);
                     </script>
                 </body>
             </html>
@@ -118,6 +112,38 @@ router.get('/naver/callback', async (req, res) => {
                 </body>
             </html>
         `);
+    }
+});
+
+// 사용자 정보 조회
+router.get('/user/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: '사용자를 찾을 수 없습니다.'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                name: user.name,
+                email: user.email,
+                profileImage: user.profileImage,
+                createdAt: user.createdAt
+            }
+        });
+    } catch (error) {
+        console.error('사용자 정보 조회 에러:', error);
+        res.status(500).json({
+            success: false,
+            message: '사용자 정보를 불러올 수 없습니다.'
+        });
     }
 });
 
