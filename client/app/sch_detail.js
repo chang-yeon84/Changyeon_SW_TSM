@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
+import { WebView } from 'react-native-webview';
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
@@ -18,6 +19,9 @@ const sch_Detail = () => {
     const [schedule, setSchedule] = useState(null);
     const [loading, setLoading] = useState(true);
     const [weather, setWeather] = useState(null);
+    const [routeInfo, setRouteInfo] = useState(null);
+    const [transportType, setTransportType] = useState('CAR'); // CAR, TRANSIT, WALK
+    const [carPriority, setCarPriority] = useState('RECOMMEND'); // RECOMMEND, TIME, DISTANCE
 
     useEffect(() => {
         setActiveTab();
@@ -129,6 +133,19 @@ const sch_Detail = () => {
         } catch (error) {
             console.error('날씨 불러오기 에러:', error);
         }
+    };
+
+    // 직선 거리 계산 함수 (Haversine formula)
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // 지구 반지름 (km)
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a =
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c; // km 단위
     };
 
     // 일정 삭제 핸들러
@@ -259,11 +276,11 @@ const sch_Detail = () => {
                             <Ionicons name="location-sharp" size={24} color="#FF4757" />
                         </View>
                         <View style={styles.locationTextContainerNoBorder}>
-                            <Text style={styles.locationText}>
+                            <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
                                 {schedule.destinationLocation || '도착지 없음'}
                             </Text>
                             {schedule.destinationAddress && (
-                                <Text style={styles.addressText} numberOfLines={2}>
+                                <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="tail">
                                     {schedule.destinationAddress}
                                 </Text>
                             )}
@@ -280,6 +297,394 @@ const sch_Detail = () => {
                         <View style={styles.memoDivider} />
                         <Text style={styles.memoText}>{schedule.memo}</Text>
                     </View>
+                )}
+
+                {/* 지도 */}
+                {(schedule.departureCoordinates || schedule.destinationCoordinates) && (
+                    <>
+                        {/* 이동 수단 선택 버튼 */}
+                        {schedule.departureCoordinates && schedule.destinationCoordinates && (
+                            <>
+                                <View style={styles.transportButtons}>
+                                    <TouchableOpacity
+                                        style={[styles.transportButton, transportType === 'CAR' && styles.transportButtonActive]}
+                                        onPress={() => setTransportType('CAR')}
+                                    >
+                                        <Ionicons
+                                            name="car"
+                                            size={20}
+                                            color={transportType === 'CAR' ? '#FFFFFF' : '#666'}
+                                        />
+                                        <Text style={[styles.transportButtonText, transportType === 'CAR' && styles.transportButtonTextActive]}>
+                                            차량
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.transportButton, transportType === 'TRANSIT' && styles.transportButtonActive]}
+                                        onPress={() => setTransportType('TRANSIT')}
+                                    >
+                                        <Ionicons
+                                            name="bus"
+                                            size={20}
+                                            color={transportType === 'TRANSIT' ? '#FFFFFF' : '#666'}
+                                        />
+                                        <Text style={[styles.transportButtonText, transportType === 'TRANSIT' && styles.transportButtonTextActive]}>
+                                            대중교통
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.transportButton, transportType === 'WALK' && styles.transportButtonActive]}
+                                        onPress={() => setTransportType('WALK')}
+                                    >
+                                        <Ionicons
+                                            name="walk"
+                                            size={20}
+                                            color={transportType === 'WALK' ? '#FFFFFF' : '#666'}
+                                        />
+                                        <Text style={[styles.transportButtonText, transportType === 'WALK' && styles.transportButtonTextActive]}>
+                                            도보
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* 차량 선택 시 세부 옵션 */}
+                                {transportType === 'CAR' && (
+                                    <View style={styles.carOptionsButtons}>
+                                        <TouchableOpacity
+                                            style={[styles.carOptionButton, carPriority === 'RECOMMEND' && styles.carOptionButtonActive]}
+                                            onPress={() => setCarPriority('RECOMMEND')}
+                                        >
+                                            <Text style={[styles.carOptionText, carPriority === 'RECOMMEND' && styles.carOptionTextActive]}>
+                                                추천
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.carOptionButton, carPriority === 'TIME' && styles.carOptionButtonActive]}
+                                            onPress={() => setCarPriority('TIME')}
+                                        >
+                                            <Text style={[styles.carOptionText, carPriority === 'TIME' && styles.carOptionTextActive]}>
+                                                빠른길
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.carOptionButton, carPriority === 'DISTANCE' && styles.carOptionButtonActive]}
+                                            onPress={() => setCarPriority('DISTANCE')}
+                                        >
+                                            <Text style={[styles.carOptionText, carPriority === 'DISTANCE' && styles.carOptionTextActive]}>
+                                                최단거리
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </>
+                        )}
+
+                        {/* 경로 정보 */}
+                        {routeInfo && (
+                            <View style={styles.routeInfoContainer}>
+                                <View style={styles.routeInfoItem}>
+                                    <Ionicons name="navigate-outline" size={18} color="#00A8FF" />
+                                    <Text style={styles.routeInfoText}>{routeInfo.distance}</Text>
+                                </View>
+                                <View style={styles.routeInfoDivider} />
+                                <View style={styles.routeInfoItem}>
+                                    <Ionicons name="time-outline" size={18} color="#00A8FF" />
+                                    <Text style={styles.routeInfoText}>{routeInfo.duration}</Text>
+                                </View>
+                                {routeInfo.fare && (
+                                    <>
+                                        <View style={styles.routeInfoDivider} />
+                                        <View style={styles.routeInfoItem}>
+                                            <Ionicons name="card-outline" size={18} color="#00A8FF" />
+                                            <Text style={styles.routeInfoText}>{routeInfo.fare}</Text>
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+                        )}
+
+                        <View style={styles.mapContainer}>
+                        <WebView
+                            key={`${transportType}-${carPriority}`}
+                            style={styles.map}
+                            originWhitelist={['*']}
+                            onError={(syntheticEvent) => {
+                                const { nativeEvent } = syntheticEvent;
+                                console.warn('WebView error: ', nativeEvent);
+                            }}
+                            onMessage={(event) => {
+                                const message = event.nativeEvent.data;
+                                console.log('WebView message: ', message);
+
+                                // 경로 정보 파싱
+                                if (message.startsWith('Route info:')) {
+                                    const parts = message.replace('Route info: ', '').split(', ');
+                                    const distance = parts[0];
+                                    const duration = parts[1];
+                                    const fare = parts[2];
+
+                                    setRouteInfo({
+                                        distance,
+                                        duration,
+                                        fare: fare !== 'undefined' ? fare : null
+                                    });
+                                }
+                            }}
+                            javaScriptEnabled={true}
+                            domStorageEnabled={true}
+                            source={{
+                                html: `
+                                    <!DOCTYPE html>
+                                    <html>
+                                    <head>
+                                        <meta charset="utf-8">
+                                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                                        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${API_CONFIG.KAKAO_JS_KEY || process.env.EXPO_PUBLIC_KAKAO_JS_KEY}"></script>
+                                        <style>
+                                            body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
+                                            #map { width: 100%; height: 100%; }
+                                        </style>
+                                    </head>
+                                    <body>
+                                        <div id="map"></div>
+                                        <script>
+                                            try {
+                                                console.log('Starting map initialization...');
+                                                window.ReactNativeWebView && window.ReactNativeWebView.postMessage('Map script started');
+
+                                            var mapContainer = document.getElementById('map');
+                                            var departureCoords = ${schedule.departureCoordinates ? `{x: ${schedule.departureCoordinates.x}, y: ${schedule.departureCoordinates.y}}` : 'null'};
+                                            var destinationCoords = ${schedule.destinationCoordinates ? `{x: ${schedule.destinationCoordinates.x}, y: ${schedule.destinationCoordinates.y}}` : 'null'};
+
+                                            var centerCoords = departureCoords || destinationCoords;
+
+                                            var mapOption = {
+                                                center: new kakao.maps.LatLng(centerCoords.y, centerCoords.x),
+                                                level: 5
+                                            };
+
+                                            var map = new kakao.maps.Map(mapContainer, mapOption);
+
+                                            // 출발지 마커
+                                            if (departureCoords) {
+                                                var departureMarker = new kakao.maps.Marker({
+                                                    position: new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
+                                                    map: map
+                                                });
+
+                                                var departureInfowindow = new kakao.maps.InfoWindow({
+                                                    content: '<div style="padding:5px;font-size:12px;">${schedule.departureLocation || '출발지'}</div>'
+                                                });
+
+                                                kakao.maps.event.addListener(departureMarker, 'click', function() {
+                                                    departureInfowindow.open(map, departureMarker);
+                                                });
+                                            }
+
+                                            // 도착지 마커
+                                            if (destinationCoords) {
+                                                var destinationMarker = new kakao.maps.Marker({
+                                                    position: new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x),
+                                                    map: map
+                                                });
+
+                                                var destinationInfowindow = new kakao.maps.InfoWindow({
+                                                    content: '<div style="padding:5px;font-size:12px;">${schedule.destinationLocation || '도착지'}</div>'
+                                                });
+
+                                                kakao.maps.event.addListener(destinationMarker, 'click', function() {
+                                                    destinationInfowindow.open(map, destinationMarker);
+                                                });
+                                            }
+
+                                            // 경로선 - 카카오 Mobility API 사용
+                                            if (departureCoords && destinationCoords) {
+                                                var kakaoRestApiKey = '${API_CONFIG.KAKAO_REST_API_KEY}';
+                                                var transportType = '${transportType}';
+                                                var carPriority = '${carPriority}';
+                                                var apiUrl = '';
+
+                                                // 이동 수단에 따라 다른 API 사용
+                                                if (transportType === 'CAR') {
+                                                    // 자동차 경로
+                                                    apiUrl = 'https://apis-navi.kakaomobility.com/v1/directions?' +
+                                                        'origin=' + departureCoords.x + ',' + departureCoords.y +
+                                                        '&destination=' + destinationCoords.x + ',' + destinationCoords.y +
+                                                        '&priority=' + carPriority;
+                                                } else if (transportType === 'WALK' || transportType === 'TRANSIT') {
+                                                    // 직선으로 표시
+                                                    var linePath = [
+                                                        new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
+                                                        new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x)
+                                                    ];
+
+                                                    var strokeColor = transportType === 'WALK' ? '#FF9800' : '#4CAF50';
+                                                    var strokeStyle = transportType === 'WALK' ? 'dot' : 'dash';
+
+                                                    var polyline = new kakao.maps.Polyline({
+                                                        path: linePath,
+                                                        strokeWeight: 5,
+                                                        strokeColor: strokeColor,
+                                                        strokeOpacity: 0.8,
+                                                        strokeStyle: strokeStyle
+                                                    });
+
+                                                    polyline.setMap(map);
+
+                                                    var bounds = new kakao.maps.LatLngBounds();
+                                                    bounds.extend(new kakao.maps.LatLng(departureCoords.y, departureCoords.x));
+                                                    bounds.extend(new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x));
+                                                    map.setBounds(bounds);
+
+                                                    // Haversine 공식으로 직선 거리 계산
+                                                    function calculateDistance(lat1, lon1, lat2, lon2) {
+                                                        var R = 6371; // 지구 반지름 (km)
+                                                        var dLat = (lat2 - lat1) * Math.PI / 180;
+                                                        var dLon = (lon2 - lon1) * Math.PI / 180;
+                                                        var a =
+                                                            Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                                                            Math.sin(dLon/2) * Math.sin(dLon/2);
+                                                        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                                        return R * c;
+                                                    }
+
+                                                    var distanceKm = calculateDistance(
+                                                        departureCoords.y, departureCoords.x,
+                                                        destinationCoords.y, destinationCoords.x
+                                                    );
+
+                                                    var distance = distanceKm.toFixed(1) + 'km';
+                                                    var duration;
+
+                                                    if (transportType === 'WALK') {
+                                                        // 도보: 평균 4km/h
+                                                        var walkTimeMinutes = Math.round((distanceKm / 4) * 60);
+                                                        duration = walkTimeMinutes + '분';
+                                                    } else {
+                                                        // 대중교통: 평균 30km/h (대략적)
+                                                        var transitTimeMinutes = Math.round((distanceKm / 30) * 60);
+                                                        duration = transitTimeMinutes + '분';
+                                                    }
+
+                                                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                                                        'Route info: ' + distance + ', ' + duration
+                                                    );
+
+                                                    apiUrl = null; // API 호출 건너뛰기
+                                                }
+
+                                                if (apiUrl) {
+
+                                                fetch(apiUrl, {
+                                                    method: 'GET',
+                                                    headers: {
+                                                        'Authorization': 'KakaoAK ' + kakaoRestApiKey
+                                                    }
+                                                })
+                                                .then(response => {
+                                                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage('API Response Status: ' + response.status);
+                                                    return response.json();
+                                                })
+                                                .then(data => {
+                                                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage('API Response: ' + JSON.stringify(data));
+                                                    if (data.routes && data.routes.length > 0) {
+                                                        var route = data.routes[0];
+                                                        var linePath = [];
+
+                                                        // 경로의 모든 구간을 순회하며 좌표 추출
+                                                        route.sections.forEach(section => {
+                                                            section.roads.forEach(road => {
+                                                                road.vertexes.forEach((vertex, index) => {
+                                                                    if (index % 2 === 0) {
+                                                                        var x = road.vertexes[index];
+                                                                        var y = road.vertexes[index + 1];
+                                                                        linePath.push(new kakao.maps.LatLng(y, x));
+                                                                    }
+                                                                });
+                                                            });
+                                                        });
+
+                                                        // 실제 도로 경로 표시 - 이동 수단별 색상
+                                                        var strokeColor = transportType === 'CAR' ? '#00A8FF' :
+                                                                         transportType === 'WALK' ? '#FF9800' : '#4CAF50';
+                                                        var strokeStyle = transportType === 'WALK' ? 'dot' : 'solid';
+
+                                                        var polyline = new kakao.maps.Polyline({
+                                                            path: linePath,
+                                                            strokeWeight: 5,
+                                                            strokeColor: strokeColor,
+                                                            strokeOpacity: 0.8,
+                                                            strokeStyle: strokeStyle
+                                                        });
+
+                                                        polyline.setMap(map);
+
+                                                        // 두 지점이 모두 보이도록 지도 범위 조정
+                                                        var bounds = new kakao.maps.LatLngBounds();
+                                                        linePath.forEach(point => bounds.extend(point));
+                                                        map.setBounds(bounds);
+
+                                                        // 거리와 시간 정보 표시
+                                                        var distance = (route.summary.distance / 1000).toFixed(1) + 'km';
+                                                        var duration = Math.round(route.summary.duration / 60) + '분';
+                                                        var fare = route.summary.fare && route.summary.fare.taxi ?
+                                                            route.summary.fare.taxi.toLocaleString() + '원' : null;
+
+                                                        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                                                            'Route info: ' + distance + ', ' + duration + (fare ? ', ' + fare : '')
+                                                        );
+                                                    } else {
+                                                        throw new Error('경로를 찾을 수 없습니다.');
+                                                    }
+                                                })
+                                                .catch(error => {
+                                                    console.error('Route error:', error);
+                                                    // API 실패시 직선으로 표시
+                                                    var linePath = [
+                                                        new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
+                                                        new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x)
+                                                    ];
+
+                                                    var polyline = new kakao.maps.Polyline({
+                                                        path: linePath,
+                                                        strokeWeight: 3,
+                                                        strokeColor: '#00A8FF',
+                                                        strokeOpacity: 0.7,
+                                                        strokeStyle: 'solid'
+                                                    });
+
+                                                    polyline.setMap(map);
+
+                                                    var bounds = new kakao.maps.LatLngBounds();
+                                                    bounds.extend(new kakao.maps.LatLng(departureCoords.y, departureCoords.x));
+                                                    bounds.extend(new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x));
+                                                    map.setBounds(bounds);
+
+                                                    window.ReactNativeWebView && window.ReactNativeWebView.postMessage('Using straight line: ' + error.message);
+                                                });
+                                                }
+                                            }
+
+                                            window.ReactNativeWebView && window.ReactNativeWebView.postMessage('Map initialized successfully');
+                                            } catch (error) {
+                                                console.error('Map error:', error);
+                                                window.ReactNativeWebView && window.ReactNativeWebView.postMessage('Map error: ' + error.message);
+                                            }
+                                        </script>
+                                    </body>
+                                    </html>
+                                `
+                            }}
+                            scrollEnabled={false}
+                            bounces={false}
+                        />
+                    </View>
+                    </>
                 )}
 
                 {/* 날씨 정보 */}
@@ -550,6 +955,114 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#000',
         lineHeight: 24,
+    },
+    transportButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: 392,
+        marginBottom: 12,
+    },
+    transportButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        marginHorizontal: 4,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+    },
+    transportButtonActive: {
+        backgroundColor: '#00A8FF',
+    },
+    transportButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginLeft: 6,
+    },
+    transportButtonTextActive: {
+        color: '#FFFFFF',
+    },
+    carOptionsButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: 392,
+        marginBottom: 12,
+    },
+    carOptionButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 8,
+        marginHorizontal: 4,
+    },
+    carOptionButtonActive: {
+        backgroundColor: '#E3F2FD',
+    },
+    carOptionText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#999',
+    },
+    carOptionTextActive: {
+        color: '#00A8FF',
+    },
+    routeInfoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 392,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+    },
+    routeInfoItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+    },
+    routeInfoText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+        marginLeft: 6,
+    },
+    routeInfoDivider: {
+        width: 1,
+        height: 18,
+        backgroundColor: '#E0E0E0',
+        marginHorizontal: 8,
+    },
+    mapContainer: {
+        width: 392,
+        height: 300,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    map: {
+        width: '100%',
+        height: '100%',
     },
     weatherBox: {
         width: 392,

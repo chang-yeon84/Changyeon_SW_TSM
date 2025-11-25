@@ -2,7 +2,6 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, useEffect } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, ScrollView } from 'react-native';
 import Btm_nav_bar from '../components/btn_btm_nav_bar';
-import BtnSch_List from '../components/btnsch_list';
 import Plancard_Home from "../components/plancard_home";
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
