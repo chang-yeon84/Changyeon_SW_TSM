@@ -50,23 +50,29 @@ router.get('/transit', async (req, res) => {
         // 캐시가 없으면 Tmap API 호출
         console.log('Tmap API 호출 - 대중교통:', routeKey);
 
-        const tmapResponse = await axios.get('https://apis.openapi.sk.com/transit/routes', {
-            headers: {
-                'Accept': 'application/json',
-                'appKey': process.env.TMAP_API_KEY
-            },
-            params: {
-                startX,
-                startY,
-                endX,
-                endY,
-                format: 'json',
+        const tmapResponse = await axios.post(
+            'https://apis.openapi.sk.com/transit/routes',
+            {
+                startX: parseFloat(startX),
+                startY: parseFloat(startY),
+                endX: parseFloat(endX),
+                endY: parseFloat(endY),
                 count: 1
+            },
+            {
+                headers: {
+                    'accept': 'application/json',
+                    'content-type': 'application/json',
+                    'appKey': process.env.TMAP_API_KEY
+                }
             }
-        });
+        );
 
         // API 응답 저장
         const routeData = tmapResponse.data;
+
+        // 디버깅: 응답 구조 확인
+        console.log('대중교통 API 응답 구조:', JSON.stringify(routeData).substring(0, 500));
 
         // 캐시에 저장
         await RouteCache.create({
@@ -132,12 +138,12 @@ router.get('/walk', async (req, res) => {
         console.log('Tmap API 호출 - 도보:', routeKey);
 
         const tmapResponse = await axios.post(
-            'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json',
+            'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1',
             {
-                startX,
-                startY,
-                endX,
-                endY,
+                startX: parseFloat(startX),
+                startY: parseFloat(startY),
+                endX: parseFloat(endX),
+                endY: parseFloat(endY),
                 reqCoordType: 'WGS84GEO',
                 resCoordType: 'WGS84GEO',
                 startName: '출발지',
@@ -145,8 +151,8 @@ router.get('/walk', async (req, res) => {
             },
             {
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
+                    'accept': 'application/json',
+                    'content-type': 'application/json',
                     'appKey': process.env.TMAP_API_KEY
                 }
             }
