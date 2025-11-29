@@ -18,6 +18,8 @@ const home = () => {
     const [loading, setLoading] = useState(true);
     const [weather, setWeather] = useState(null);
     const [location, setLocation] = useState(null);
+    const [nextSchedule, setNextSchedule] = useState(null);
+    const [transitInfo, setTransitInfo] = useState(null);
 
     console.log('[home] 렌더링 시 user 상태:', user);
 
@@ -71,7 +73,7 @@ const home = () => {
             }
 
             const today = new Date();
-            const dateString = today.toISOString().split('T')[0];
+            const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             const response = await fetch(
                 `${API_ENDPOINTS.SCHEDULES}/date/${dateString}?userId=${userId}`
@@ -81,15 +83,86 @@ const home = () => {
 
             if (result.success) {
                 setSchedules(result.data);
+
+                // 다음 일정 찾기
+                findNextSchedule(result.data);
             } else {
                 console.error('일정 조회 실패:', result.message);
                 setSchedules([]);
+                setNextSchedule(null);
             }
         } catch (error) {
             console.error('일정 불러오기 에러:', error);
             setSchedules([]);
+            setNextSchedule(null);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 다음 일정 찾기 및 대중교통 정보 가져오기
+    const findNextSchedule = async (scheduleList) => {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+
+        // 현재 시간 이후의 일정 필터링
+        const upcomingSchedules = scheduleList.filter(schedule => {
+            const [hours, minutes] = schedule.startTime.split(':').map(Number);
+            const scheduleTime = hours * 60 + minutes;
+            return scheduleTime > currentTime;
+        });
+
+        if (upcomingSchedules.length === 0) {
+            setNextSchedule(null);
+            setTransitInfo(null);
+            return;
+        }
+
+        // 가장 가까운 일정 선택
+        const nextSch = upcomingSchedules.sort((a, b) => {
+            const [aH, aM] = a.startTime.split(':').map(Number);
+            const [bH, bM] = b.startTime.split(':').map(Number);
+            return (aH * 60 + aM) - (bH * 60 + bM);
+        })[0];
+
+        setNextSchedule(nextSch);
+
+        // 대중교통 정보 가져오기 (출발지와 도착지가 모두 있는 경우)
+        if (nextSch.departureCoordinates && nextSch.destinationCoordinates) {
+            fetchTransitInfo(nextSch);
+        }
+    };
+
+    // 대중교통 정보 가져오기
+    const fetchTransitInfo = async (schedule) => {
+        try {
+            const params = new URLSearchParams({
+                startX: schedule.departureCoordinates.x,
+                startY: schedule.departureCoordinates.y,
+                endX: schedule.destinationCoordinates.x,
+                endY: schedule.destinationCoordinates.y
+            });
+
+            const response = await fetch(`${API_ENDPOINTS.ROUTE_TRANSIT}?${params}`);
+            const result = await response.json();
+
+            if (result.success && result.data.metaData && result.data.metaData.plan) {
+                const itinerary = result.data.metaData.plan.itineraries[0];
+                if (itinerary && itinerary.legs) {
+                    // 첫 번째 대중교통 구간 찾기 (도보 제외)
+                    const transitLeg = itinerary.legs.find(leg => leg.mode === 'BUS' || leg.mode === 'SUBWAY');
+
+                    setTransitInfo({
+                        totalTime: Math.round(itinerary.totalTime / 60),
+                        mode: transitLeg ? transitLeg.mode : null,
+                        route: transitLeg ? transitLeg.route : null,
+                        cached: result.cached
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('대중교통 정보 조회 에러:', error);
+            setTransitInfo(null);
         }
     };
 
@@ -158,6 +231,7 @@ const home = () => {
     return (
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
+            <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.whiteBox}>
                 <Text style={styles.header}>오늘의 일정</Text>
                 {loading ? (
@@ -175,11 +249,7 @@ const home = () => {
                             style={styles.homeIcon}
                             resizeMode="contain"
                         />
-                        <ScrollView
-                            style={styles.scrollContainer}
-                            contentContainerStyle={styles.scrollContent}
-                            showsVerticalScrollIndicator={false}
-                        >
+                        <View style={styles.scrollContainer}>
                             {schedules.length === 0 ? (
                                 <View style={styles.emptyContainer}>
                                     <Ionicons name="calendar-outline" size={60} color="#C7C7C7" />
@@ -187,27 +257,104 @@ const home = () => {
                                 </View>
                             ) : (
                                 <View style={styles.allPlanSections}>
-                                    {schedules.map((schedule, index) => (
-                                        <TouchableOpacity
-                                            key={schedule._id}
-                                            onPress={() => router.push({ pathname: "/sch_detail", params: { id: schedule._id } })}
-                                            activeOpacity={1}
-                                        >
-                                            <View style={styles.planSection}>
-                                                <Plancard_Home
-                                                    time={schedule.startTime}
-                                                    title={schedule.title}
-                                                    location={schedule.destinationLocation || schedule.departureLocation || '위치 없음'}
-                                                />
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
+                                    {schedules.map((schedule, index) => {
+                                        // 일정 종료 시간이 현재 시간보다 이전인지 확인
+                                        const now = new Date();
+                                        const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+                                        const scheduleEndTime = new Date();
+                                        scheduleEndTime.setHours(endHours, endMinutes, 0);
+                                        const isPast = scheduleEndTime < now;
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={schedule._id}
+                                                onPress={() => router.push({ pathname: "/sch_detail", params: { id: schedule._id } })}
+                                                activeOpacity={1}
+                                            >
+                                                <View style={styles.planSection}>
+                                                    <Plancard_Home
+                                                        time={schedule.startTime}
+                                                        title={schedule.title}
+                                                        location={schedule.destinationLocation || schedule.departureLocation || '위치 없음'}
+                                                        isPast={isPast}
+                                                    />
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             )}
-                        </ScrollView>
+                        </View>
                     </>
                 )}
             </View>
+
+            {/* 다음 일정 카드 */}
+            {nextSchedule && (
+                <View style={styles.nextScheduleCard}>
+                    <View style={styles.nextScheduleHeader}>
+                        <View style={styles.departureTimeBox}>
+                            <Text style={styles.nextScheduleTitle}>
+                                {/* 출발 시간 계산 */}
+                                {(() => {
+                                    const [hours, minutes] = nextSchedule.startTime.split(':').map(Number);
+                                    const now = new Date();
+                                    const scheduleTime = new Date(now);
+                                    scheduleTime.setHours(hours, minutes, 0);
+
+                                    const diffMs = scheduleTime - now;
+                                    const diffMins = Math.floor(diffMs / 60000);
+                                    const diffHours = Math.floor(diffMins / 60);
+                                    const remainMins = diffMins % 60;
+
+                                    if (transitInfo) {
+                                        const departureTime = diffMins - transitInfo.totalTime;
+                                        const deptHours = Math.floor(departureTime / 60);
+                                        const deptMins = departureTime % 60;
+
+                                        if (deptHours > 0) {
+                                            return `출발 준비  ${deptHours}시간 ${deptMins}분 뒤 출발`;
+                                        } else if (deptMins > 0) {
+                                            return `출발 준비  ${deptMins}분 뒤 출발`;
+                                        } else {
+                                            return `지금 출발하세요!`;
+                                        }
+                                    } else {
+                                        if (diffHours > 0) {
+                                            return `출발 준비  ${diffHours}시간 ${remainMins}분 남음`;
+                                        } else {
+                                            return `출발 준비  ${diffMins}분 남음`;
+                                        }
+                                    }
+                                })()}
+                            </Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.nextScheduleContent}
+                        onPress={() => router.push(`/sch_detail?id=${nextSchedule._id}`)}
+                    >
+                        <Text style={styles.nextScheduleName}>{nextSchedule.title} <Text style={styles.nextScheduleSubtitle}>외출 준비를 시작하세요!</Text></Text>
+
+                        {transitInfo && (
+                            <View style={styles.transitInfoBox}>
+                                <Ionicons name="bus" size={18} color="#5BB85C" />
+                                <Text style={styles.transitInfoText}>대중교통</Text>
+                                {transitInfo.route && (
+                                    <Text style={styles.transitRoute}>{transitInfo.route}</Text>
+                                )}
+                                <Text style={styles.transitTime}>{transitInfo.totalTime}분 후 도착</Text>
+                            </View>
+                        )}
+
+                        {nextSchedule.destinationLocation && (
+                            <View style={styles.nextScheduleLocationBox}>
+                                <Text style={styles.nextScheduleLocation}>{nextSchedule.destinationLocation}으로 이동</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* 날씨 정보 */}
             {weather && (
@@ -236,7 +383,7 @@ const home = () => {
                     </View>
                 </View>
             )}
-
+            </ScrollView>
             <Btm_nav_bar />
         </View>
     )
@@ -245,7 +392,11 @@ const home = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    contentContainer: {
         alignItems: 'center',
+        paddingTop: 50,
+        paddingBottom: 100,
     },
     whiteBox: {
         width: 392,
@@ -257,7 +408,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-        marginTop: 50,
     },
     header: {
         fontSize: 40,
@@ -289,11 +439,7 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     scrollContainer: {
-        flex: 1,
         marginTop: 20,
-    },
-    scrollContent: {
-        flexGrow: 1,
     },
     emptyContainer: {
         alignItems: 'center',
@@ -376,6 +522,76 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#FFFFFF',
         fontWeight: '500',
+    },
+    nextScheduleCard: {
+        width: 392,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    nextScheduleHeader: {
+        marginBottom: 12,
+    },
+    departureTimeBox: {
+        backgroundColor: '#E8E8E8',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    nextScheduleTitle: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '600',
+    },
+    nextScheduleContent: {
+        gap: 8,
+    },
+    nextScheduleName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#000',
+        marginBottom: 4,
+    },
+    nextScheduleSubtitle: {
+        fontSize: 14,
+        fontWeight: 'normal',
+        color: '#666',
+    },
+    transitInfoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#F5F5F5',
+        padding: 8,
+        borderRadius: 8,
+    },
+    transitInfoText: {
+        fontSize: 14,
+        color: '#333',
+    },
+    transitRoute: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#5BB85C',
+    },
+    transitTime: {
+        fontSize: 13,
+        color: '#666',
+        marginLeft: 'auto',
+    },
+    nextScheduleLocationBox: {
+        marginTop: 4,
+    },
+    nextScheduleLocation: {
+        fontSize: 14,
+        color: '#666',
     },
 });
 

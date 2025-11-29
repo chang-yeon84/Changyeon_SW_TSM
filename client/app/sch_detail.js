@@ -22,11 +22,106 @@ const sch_Detail = () => {
     const [routeInfo, setRouteInfo] = useState(null);
     const [transportType, setTransportType] = useState('CAR'); // CAR, TRANSIT, WALK
     const [carPriority, setCarPriority] = useState('RECOMMEND'); // RECOMMEND, TIME, DISTANCE
+    const [tmapRouteData, setTmapRouteData] = useState(null);
+    const [transitSteps, setTransitSteps] = useState(null);
 
     useEffect(() => {
         setActiveTab();
         fetchScheduleDetail();
     }, [scheduleId]);
+
+    // Tmap 경로 데이터 가져오기 (대중교통, 도보)
+    useEffect(() => {
+        if (!schedule?.departureCoordinates || !schedule?.destinationCoordinates) return;
+        if (transportType === 'CAR') {
+            setTmapRouteData(null);
+            return;
+        }
+
+        fetchTmapRoute();
+    }, [transportType, schedule]);
+
+    const fetchTmapRoute = async () => {
+        try {
+            const endpoint = transportType === 'TRANSIT'
+                ? API_ENDPOINTS.ROUTE_TRANSIT
+                : API_ENDPOINTS.ROUTE_WALK;
+
+            const params = new URLSearchParams({
+                startX: schedule.departureCoordinates.x,
+                startY: schedule.departureCoordinates.y,
+                endX: schedule.destinationCoordinates.x,
+                endY: schedule.destinationCoordinates.y
+            });
+
+            console.log(`Tmap ${transportType} 경로 요청:`, endpoint, params.toString());
+
+            const response = await fetch(`${endpoint}?${params}`);
+            const result = await response.json();
+
+            if (result.success) {
+                console.log(`Tmap ${transportType} 경로 응답:`, result.cached ? '캐시됨' : '새로 가져옴');
+                setTmapRouteData(result.data);
+
+                // 경로 정보 업데이트
+                if (transportType === 'TRANSIT' && result.data.metaData && result.data.metaData.plan) {
+                    const itinerary = result.data.metaData.plan.itineraries[0];
+                    if (itinerary) {
+                        const totalTimeMinutes = Math.round(itinerary.totalTime / 60);
+                        const totalDistanceKm = (itinerary.totalDistance / 1000).toFixed(1);
+                        setRouteInfo({
+                            distance: `${totalDistanceKm}km`,
+                            duration: `${totalTimeMinutes}분`,
+                            fare: null  // 대중교통은 요금 표시 안 함
+                        });
+
+                        // 대중교통 경로 상세 정보 파싱
+                        const steps = itinerary.legs.map((leg, index) => {
+                            // 첫 구간은 출발지, 마지막 구간은 도착지 이름 사용
+                            let startName = leg.start.name;
+                            let endName = leg.end.name;
+
+                            if (index === 0 && schedule.departureLocation) {
+                                startName = schedule.departureLocation;
+                            }
+                            if (index === itinerary.legs.length - 1 && schedule.destinationLocation) {
+                                endName = schedule.destinationLocation;
+                            }
+
+                            return {
+                                mode: leg.mode,
+                                route: leg.route,
+                                startName: startName,
+                                endName: endName,
+                                distance: leg.distance,
+                                sectionTime: leg.sectionTime
+                            };
+                        });
+                        setTransitSteps(steps);
+                    }
+                } else if (transportType === 'WALK' && result.data.features) {
+                    const totalDistance = result.data.features
+                        .filter(f => f.geometry.type === 'LineString')
+                        .reduce((sum, f) => sum + (f.properties.distance || 0), 0);
+                    const totalTime = result.data.features
+                        .filter(f => f.geometry.type === 'LineString')
+                        .reduce((sum, f) => sum + (f.properties.time || 0), 0);
+
+                    setRouteInfo({
+                        distance: `${(totalDistance / 1000).toFixed(1)}km`,
+                        duration: `${Math.round(totalTime / 60)}분`,
+                        fare: null
+                    });
+                }
+            } else {
+                console.error(`Tmap ${transportType} 경로 조회 실패:`, result.message);
+                setTmapRouteData(null);
+            }
+        } catch (error) {
+            console.error(`Tmap ${transportType} 경로 조회 에러:`, error);
+            setTmapRouteData(null);
+        }
+    };
 
     // 옷차림 추천
     const getClothingRecommendation = (temp) => {
@@ -400,7 +495,7 @@ const sch_Detail = () => {
                                         <View style={styles.routeInfoDivider} />
                                         <View style={styles.routeInfoItem}>
                                             <Ionicons name="card-outline" size={18} color="#00A8FF" />
-                                            <Text style={styles.routeInfoText}>{routeInfo.fare}</Text>
+                                            <Text style={styles.routeInfoText}>택시 {routeInfo.fare}</Text>
                                         </View>
                                     </>
                                 )}
@@ -459,6 +554,7 @@ const sch_Detail = () => {
                                             var mapContainer = document.getElementById('map');
                                             var departureCoords = ${schedule.departureCoordinates ? `{x: ${schedule.departureCoordinates.x}, y: ${schedule.departureCoordinates.y}}` : 'null'};
                                             var destinationCoords = ${schedule.destinationCoordinates ? `{x: ${schedule.destinationCoordinates.x}, y: ${schedule.destinationCoordinates.y}}` : 'null'};
+                                            var tmapRouteData = ${tmapRouteData ? JSON.stringify(tmapRouteData) : 'null'};
 
                                             var centerCoords = departureCoords || destinationCoords;
 
@@ -516,64 +612,122 @@ const sch_Detail = () => {
                                                         '&destination=' + destinationCoords.x + ',' + destinationCoords.y +
                                                         '&priority=' + carPriority;
                                                 } else if (transportType === 'WALK' || transportType === 'TRANSIT') {
-                                                    // 직선으로 표시
-                                                    var linePath = [
-                                                        new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
-                                                        new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x)
-                                                    ];
-
-                                                    var strokeColor = transportType === 'WALK' ? '#FF9800' : '#4CAF50';
-                                                    var strokeStyle = transportType === 'WALK' ? 'dot' : 'dash';
-
-                                                    var polyline = new kakao.maps.Polyline({
-                                                        path: linePath,
-                                                        strokeWeight: 5,
-                                                        strokeColor: strokeColor,
-                                                        strokeOpacity: 0.8,
-                                                        strokeStyle: strokeStyle
-                                                    });
-
-                                                    polyline.setMap(map);
-
-                                                    var bounds = new kakao.maps.LatLngBounds();
-                                                    bounds.extend(new kakao.maps.LatLng(departureCoords.y, departureCoords.x));
-                                                    bounds.extend(new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x));
-                                                    map.setBounds(bounds);
-
-                                                    // Haversine 공식으로 직선 거리 계산
-                                                    function calculateDistance(lat1, lon1, lat2, lon2) {
-                                                        var R = 6371; // 지구 반지름 (km)
-                                                        var dLat = (lat2 - lat1) * Math.PI / 180;
-                                                        var dLon = (lon2 - lon1) * Math.PI / 180;
-                                                        var a =
-                                                            Math.sin(dLat/2) * Math.sin(dLat/2) +
-                                                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                                                            Math.sin(dLon/2) * Math.sin(dLon/2);
-                                                        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                                        return R * c;
-                                                    }
-
-                                                    var distanceKm = calculateDistance(
-                                                        departureCoords.y, departureCoords.x,
-                                                        destinationCoords.y, destinationCoords.x
-                                                    );
-
-                                                    var distance = distanceKm.toFixed(1) + 'km';
-                                                    var duration;
-
-                                                    if (transportType === 'WALK') {
-                                                        // 도보: 평균 4km/h
-                                                        var walkTimeMinutes = Math.round((distanceKm / 4) * 60);
-                                                        duration = walkTimeMinutes + '분';
-                                                    } else {
-                                                        // 대중교통: 평균 30km/h (대략적)
-                                                        var transitTimeMinutes = Math.round((distanceKm / 30) * 60);
-                                                        duration = transitTimeMinutes + '분';
-                                                    }
-
+                                                    // Tmap 데이터가 있으면 사용, 없으면 직선으로 표시
                                                     window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
-                                                        'Route info: ' + distance + ', ' + duration
+                                                        'Tmap data available: ' + (tmapRouteData ? 'YES' : 'NO')
                                                     );
+
+                                                    if (tmapRouteData) {
+                                                        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                                                            'Tmap data structure: ' + JSON.stringify(Object.keys(tmapRouteData))
+                                                        );
+
+                                                        var linePath = [];
+                                                        var strokeColor = transportType === 'WALK' ? '#FF9800' : '#4CAF50';
+                                                        var strokeStyle = 'solid';
+
+                                                        if (transportType === 'WALK' && tmapRouteData.features) {
+                                                            // 도보 경로: features에서 LineString 좌표 추출
+                                                            tmapRouteData.features.forEach(function(feature) {
+                                                                if (feature.geometry.type === 'LineString') {
+                                                                    feature.geometry.coordinates.forEach(function(coord) {
+                                                                        linePath.push(new kakao.maps.LatLng(coord[1], coord[0]));
+                                                                    });
+                                                                }
+                                                            });
+                                                        } else if (transportType === 'TRANSIT' && tmapRouteData.metaData && tmapRouteData.metaData.plan) {
+                                                            // 대중교통 경로: itineraries에서 legs의 좌표 추출
+                                                            var itinerary = tmapRouteData.metaData.plan.itineraries[0];
+                                                            if (itinerary && itinerary.legs) {
+                                                                itinerary.legs.forEach(function(leg) {
+                                                                    if (leg.passShape && leg.passShape.linestring) {
+                                                                        // 공백으로 구분된 좌표들 (각 좌표는 "경도,위도" 형식)
+                                                                        var coordPairs = leg.passShape.linestring.split(' ');
+                                                                        coordPairs.forEach(function(pair) {
+                                                                            var coords = pair.split(',');
+                                                                            if (coords.length === 2) {
+                                                                                var lon = parseFloat(coords[0]);
+                                                                                var lat = parseFloat(coords[1]);
+                                                                                linePath.push(new kakao.maps.LatLng(lat, lon));
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        }
+
+                                                        if (linePath.length > 0) {
+                                                            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                                                                'Creating polyline with ' + linePath.length + ' points, first lat: ' +
+                                                                linePath[0].getLat() + ', lng: ' + linePath[0].getLng()
+                                                            );
+
+                                                            var polyline = new kakao.maps.Polyline({
+                                                                path: linePath,
+                                                                strokeWeight: 5,
+                                                                strokeColor: strokeColor,
+                                                                strokeOpacity: 0.8,
+                                                                strokeStyle: strokeStyle
+                                                            });
+
+                                                            polyline.setMap(map);
+
+                                                            var bounds = new kakao.maps.LatLngBounds();
+                                                            linePath.forEach(function(point) {
+                                                                bounds.extend(point);
+                                                            });
+
+                                                            // 패딩을 추가하여 경로가 잘 보이도록
+                                                            map.setBounds(bounds, 50, 50, 50, 50);
+
+                                                            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+                                                                'Tmap route displayed with ' + linePath.length + ' points'
+                                                            );
+                                                        } else {
+                                                            // 경로 데이터가 없으면 직선 표시
+                                                            var straightLine = [
+                                                                new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
+                                                                new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x)
+                                                            ];
+                                                            var polyline = new kakao.maps.Polyline({
+                                                                path: straightLine,
+                                                                strokeWeight: 5,
+                                                                strokeColor: strokeColor,
+                                                                strokeOpacity: 0.8,
+                                                                strokeStyle: strokeStyle
+                                                            });
+                                                            polyline.setMap(map);
+
+                                                            var bounds = new kakao.maps.LatLngBounds();
+                                                            bounds.extend(new kakao.maps.LatLng(departureCoords.y, departureCoords.x));
+                                                            bounds.extend(new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x));
+                                                            map.setBounds(bounds);
+                                                        }
+                                                    } else {
+                                                        // tmapRouteData가 없으면 직선으로 표시
+                                                        var linePath = [
+                                                            new kakao.maps.LatLng(departureCoords.y, departureCoords.x),
+                                                            new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x)
+                                                        ];
+
+                                                        var strokeColor = transportType === 'WALK' ? '#FF9800' : '#4CAF50';
+                                                        var strokeStyle = transportType === 'WALK' ? 'dot' : 'dash';
+
+                                                        var polyline = new kakao.maps.Polyline({
+                                                            path: linePath,
+                                                            strokeWeight: 5,
+                                                            strokeColor: strokeColor,
+                                                            strokeOpacity: 0.8,
+                                                            strokeStyle: strokeStyle
+                                                        });
+
+                                                        polyline.setMap(map);
+
+                                                        var bounds = new kakao.maps.LatLngBounds();
+                                                        bounds.extend(new kakao.maps.LatLng(departureCoords.y, departureCoords.x));
+                                                        bounds.extend(new kakao.maps.LatLng(destinationCoords.y, destinationCoords.x));
+                                                        map.setBounds(bounds);
+                                                    }
 
                                                     apiUrl = null; // API 호출 건너뛰기
                                                 }
@@ -684,6 +838,69 @@ const sch_Detail = () => {
                             bounces={false}
                         />
                     </View>
+
+                    {/* 대중교통 상세 정보 */}
+                    {transportType === 'TRANSIT' && transitSteps && transitSteps.length > 0 && (
+                        <View style={styles.transitStepsContainer}>
+                            <Text style={styles.transitStepsTitle}>경로 안내</Text>
+                            {transitSteps.map((step, index) => {
+                                const getModeIcon = (mode) => {
+                                    if (mode === 'BUS') return 'bus';
+                                    if (mode === 'SUBWAY') return 'subway';
+                                    if (mode === 'WALK') return 'walk';
+                                    return 'navigate';
+                                };
+
+                                const getModeColor = (mode) => {
+                                    if (mode === 'BUS') return '#5BB85C';
+                                    if (mode === 'SUBWAY') return '#0073E6';
+                                    if (mode === 'WALK') return '#FF9800';
+                                    return '#666';
+                                };
+
+                                return (
+                                    <View key={index} style={styles.transitStep}>
+                                        <View style={[styles.transitStepIcon, { backgroundColor: getModeColor(step.mode) }]}>
+                                            <Ionicons name={getModeIcon(step.mode)} size={20} color="#FFF" />
+                                        </View>
+                                        <View style={styles.transitStepContent}>
+                                            <View style={styles.transitStepHeader}>
+                                                {step.mode === 'BUS' && step.route && (
+                                                    <Text style={styles.transitRoute}>{step.route}</Text>
+                                                )}
+                                                {step.mode === 'SUBWAY' && step.route && (
+                                                    <Text style={styles.transitRoute}>{step.route}</Text>
+                                                )}
+                                                {step.mode === 'WALK' && (
+                                                    <Text style={styles.transitRoute}>도보</Text>
+                                                )}
+                                                <Text style={styles.transitTime}>{Math.round(step.sectionTime / 60)}분</Text>
+                                            </View>
+                                            <Text style={styles.transitLocation}>
+                                                {(() => {
+                                                    // ? 문자 제거
+                                                    const cleanStartName = step.startName ? step.startName.replace(/\?/g, '') : '';
+                                                    const cleanEndName = step.endName ? step.endName.replace(/\?/g, '') : '';
+
+                                                    // 첫 구간은 출발지 이름 사용
+                                                    if (index === 0 && schedule.departureLocation) {
+                                                        return `${schedule.departureLocation} → ${cleanEndName}`;
+                                                    }
+                                                    // 마지막 구간은 도착지 이름 사용
+                                                    if (index === transitSteps.length - 1 && schedule.destinationLocation) {
+                                                        return `${cleanStartName} → ${schedule.destinationLocation}`;
+                                                    }
+                                                    // 중간 구간은 정류장 이름 표시
+                                                    return `${cleanStartName} → ${cleanEndName}`;
+                                                })()}
+                                            </Text>
+                                            <Text style={styles.transitDistance}>{Math.round(step.sectionTime / 60)}분</Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
                     </>
                 )}
 
@@ -1131,6 +1348,62 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#FFFFFF',
         fontWeight: '500',
+    },
+    transitStepsContainer: {
+        width: 392,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 16,
+    },
+    transitStepsTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: '#000',
+    },
+    transitStep: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E0E0',
+    },
+    transitStepIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    transitStepContent: {
+        flex: 1,
+    },
+    transitStepHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    transitRoute: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    transitTime: {
+        fontSize: 13,
+        color: '#666',
+    },
+    transitLocation: {
+        fontSize: 14,
+        color: '#333',
+        marginBottom: 2,
+    },
+    transitDistance: {
+        fontSize: 12,
+        color: '#999',
     },
 });
 

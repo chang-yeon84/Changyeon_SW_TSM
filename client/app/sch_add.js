@@ -61,7 +61,9 @@ const SchAdd = () => {
                 if (result.success) {
                     const schedule = result.data;
                     setText(schedule.title);
-                    setSelectedDate(new Date(schedule.date));
+                    // 날짜 문자열을 로컬 시간으로 파싱 (YYYY-MM-DD 형식)
+                    const dateParts = schedule.date.split('T')[0].split('-');
+                    setSelectedDate(new Date(dateParts[0], dateParts[1] - 1, dateParts[2]));
                     setStartTime(schedule.startTime);
                     setEndTime(schedule.endTime);
                     setMemo(schedule.memo || '');
@@ -146,7 +148,7 @@ const SchAdd = () => {
             const scheduleData = {
                 userId,
                 title: text,
-                date: selectedDate.toISOString(),
+                date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
                 startTime,
                 endTime,
                 departureLocation: departureData.name || '',
