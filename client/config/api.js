@@ -22,6 +22,10 @@ export const API_ENDPOINTS = {
     // 경로 API
     ROUTE_TRANSIT: `${API_CONFIG.BASE_URL}/api/routes/transit`,
     ROUTE_WALK: `${API_CONFIG.BASE_URL}/api/routes/walk`,
+
+    // 추천 API
+    RECOMMENDATIONS_NEARBY: `${API_CONFIG.BASE_URL}/api/recommendations/nearby`,
+    RECOMMENDATIONS_SEARCH: `${API_CONFIG.BASE_URL}/api/recommendations/search`,
 };
 
 export default API_CONFIG;

@@ -2,6 +2,30 @@ const express = require('express');
 const router = express.Router();
 const Schedule = require('../models/schedule');
 
+// 모든 일정 조회
+router.get('/', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    // userId가 없으면 모든 일정 반환 (개발 편의)
+    const query = userId ? { userId } : {};
+
+    const schedules = await Schedule.find(query).sort({ date: 1, startTime: 1 });
+
+    res.status(200).json({
+      success: true,
+      schedules: schedules,
+    });
+  } catch (error) {
+    console.error('일정 조회 에러:', error);
+    res.status(500).json({
+      success: false,
+      message: '일정 조회에 실패했습니다.',
+      error: error.message,
+    });
+  }
+});
+
 // 일정 생성
 router.post('/', async (req, res) => {
   try {

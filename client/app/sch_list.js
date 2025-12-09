@@ -9,6 +9,8 @@ import Plancard_List from '../components/plancard_list';
 import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
 import API_CONFIG from '../config/api';
+import { API_ENDPOINTS } from '../config/api';
+import DatePickerModal from '../components/date_picker_modal';
 
 const sch_List = () => {
     const router = useRouter();
@@ -17,6 +19,8 @@ const sch_List = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [scheduleData, setScheduleData] = useState({});
+    const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
     console.log('[sch_list] 렌더링 시 user 상태:', user);
 
@@ -42,8 +46,8 @@ const sch_List = () => {
                 return;
             }
 
-            // 날짜를 YYYY-MM-DD 형식으로 변환
-            const dateString = currentDate.toISOString().split('T')[0];
+            // 날짜를 YYYY-MM-DD 형식으로 변환 (로컬 시간대 유지)
+            const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
             const response = await fetch(
                 `${API_CONFIG.BASE_URL}/api/schedules/date/${dateString}?userId=${userId}`
@@ -53,6 +57,10 @@ const sch_List = () => {
 
             if (result.success) {
                 setSchedules(result.data);
+                // 각 일정에 대한 날씨와 소요시간 가져오기
+                result.data.forEach(schedule => {
+                    fetchScheduleDetails(schedule);
+                });
             } else {
                 console.error('일정 불러오기 실패:', result.message);
                 setSchedules([]);
@@ -62,6 +70,72 @@ const sch_List = () => {
             setSchedules([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 일정별 상세 정보 (날씨, 소요시간) 가져오기
+    const fetchScheduleDetails = async (schedule) => {
+        try {
+            const details = {};
+
+            // 날씨 정보 가져오기
+            if (schedule.departureCoordinates || schedule.destinationCoordinates) {
+                const coordinates = schedule.departureCoordinates || schedule.destinationCoordinates;
+                const weatherResponse = await fetch(
+                    `${API_ENDPOINTS.WEATHER}?lat=${coordinates.y}&lon=${coordinates.x}&appid=${API_CONFIG.OPENWEATHER_API_KEY}&units=metric&lang=kr`
+                );
+                const weatherData = await weatherResponse.json();
+                if (weatherResponse.ok) {
+                    details.weather = `${Math.round(weatherData.main.temp)}° ${weatherData.weather[0].description}`;
+                }
+            }
+
+            // 소요시간 계산 (도보 및 대중교통)
+            if (schedule.departureCoordinates && schedule.destinationCoordinates) {
+                const params = new URLSearchParams({
+                    startX: schedule.departureCoordinates.x,
+                    startY: schedule.departureCoordinates.y,
+                    endX: schedule.destinationCoordinates.x,
+                    endY: schedule.destinationCoordinates.y
+                });
+
+                // 도보 경로 가져오기
+                const walkResponse = await fetch(`${API_ENDPOINTS.ROUTE_WALK}?${params}`);
+                const walkResult = await walkResponse.json();
+
+                let walkTimeMinutes = null;
+                if (walkResult.success && walkResult.data.features) {
+                    const totalDistance = walkResult.data.features[0]?.properties?.totalDistance || 0;
+                    const totalTime = walkResult.data.features[0]?.properties?.totalTime || 0;
+                    walkTimeMinutes = Math.round(totalTime / 60);
+                }
+
+                // 도보 시간이 20분 이하면 도보 사용, 아니면 대중교통 사용
+                if (walkTimeMinutes !== null && walkTimeMinutes <= 20) {
+                    details.journeyTime = `${walkTimeMinutes}분`;
+                    details.transportType = 'walk';
+                } else {
+                    // 대중교통 경로 가져오기
+                    const transitResponse = await fetch(`${API_ENDPOINTS.ROUTE_TRANSIT}?${params}`);
+                    const transitResult = await transitResponse.json();
+
+                    if (transitResult.success && transitResult.data.metaData?.plan) {
+                        const itinerary = transitResult.data.metaData.plan.itineraries[0];
+                        if (itinerary) {
+                            const totalTimeMinutes = Math.round(itinerary.totalTime / 60);
+                            details.journeyTime = `${totalTimeMinutes}분`;
+                            details.transportType = 'transit';
+                        }
+                    }
+                }
+            }
+
+            setScheduleData(prev => ({
+                ...prev,
+                [schedule._id]: details
+            }));
+        } catch (error) {
+            console.error('일정 상세 정보 가져오기 에러:', error);
         }
     };
 
@@ -82,6 +156,11 @@ const sch_List = () => {
         const month = date.getMonth() + 1;
         const day = date.getDate();
         return `${year}년 ${month}월 ${day}일`;
+    };
+
+    // 달력에서 날짜 선택 시 핸들러
+    const handleDateConfirm = (date) => {
+        setCurrentDate(date);
     };
 
     // 교통수단 아이콘 가져오기
@@ -106,9 +185,14 @@ const sch_List = () => {
             <Stack.Screen options={{ headerShown: false }} />
             <View style={styles.topWhiteBox}>
                 <Btnsch_list_date direction="left" onPress={handlePrevDay} />
-                <Text style={styles.dateText}>
-                    {formatDate(currentDate)}
-                </Text>
+                <TouchableOpacity
+                    onPress={() => setIsDatePickerVisible(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.dateText}>
+                        {formatDate(currentDate)}
+                    </Text>
+                </TouchableOpacity>
                 <Btnsch_list_date direction="right" onPress={handleNextDay} />
             </View>
             <View style={styles.underWhiteBox}>
@@ -121,23 +205,35 @@ const sch_List = () => {
                     <ScrollView contentContainerStyle={styles.scrollContent}>
                         <View style={styles.allPlanSections}>
                             {schedules.length > 0 ? (
-                                schedules.map((schedule) => (
-                                    <TouchableOpacity
-                                        key={schedule._id}
-                                        onPress={() => router.push({ pathname: "/sch_detail", params: { id: schedule._id } })}
-                                        activeOpacity={1}
-                                    >
-                                        <Plancard_List
-                                            time={`${schedule.startTime} ~ ${schedule.endTime}`}
-                                            title={schedule.title}
-                                            location={schedule.destinationLocation || '-'}
-                                            weather={schedule.weather || '정보 없음'}
-                                            departureLocation={schedule.departureLocation || '-'}
-                                            transport={getTransportIcon(schedule.transportType)}
-                                            journeyTime={schedule.journeyTime || '-'}
-                                        />
-                                    </TouchableOpacity>
-                                ))
+                                schedules.map((schedule) => {
+                                    // 일정 종료 시간이 현재 시간보다 이전인지 확인
+                                    const now = new Date();
+                                    const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+                                    const scheduleEndTime = new Date();
+                                    scheduleEndTime.setHours(endHours, endMinutes, 0);
+                                    const isPast = scheduleEndTime < now;
+
+                                    // 해당 일정의 상세 정보 가져오기
+                                    const details = scheduleData[schedule._id] || {};
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={schedule._id}
+                                            onPress={() => router.push({ pathname: "/sch_detail", params: { id: schedule._id } })}
+                                            activeOpacity={1}
+                                        >
+                                            <Plancard_List
+                                                time={`${schedule.startTime} ~ ${schedule.endTime}`}
+                                                title={schedule.title}
+                                                location={schedule.destinationLocation || '-'}
+                                                weather={details.weather || '정보 없음'}
+                                                journeyTime={details.journeyTime || '-'}
+                                                transportType={details.transportType || null}
+                                                isPast={isPast}
+                                            />
+                                        </TouchableOpacity>
+                                    );
+                                })
                             ) : (
                                 <View style={styles.emptyContainer}>
                                     <Ionicons name="calendar-outline" size={60} color="#C7C7C7" />
@@ -155,6 +251,15 @@ const sch_List = () => {
                     </ScrollView>
                 )}
             </View>
+
+            {/* 날짜 선택 모달 */}
+            <DatePickerModal
+                visible={isDatePickerVisible}
+                onClose={() => setIsDatePickerVisible(false)}
+                initialDate={currentDate}
+                onConfirm={handleDateConfirm}
+            />
+
             <Btm_nav_bar />
         </View>
 

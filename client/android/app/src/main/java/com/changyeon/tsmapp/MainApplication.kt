@@ -1,4 +1,4 @@
-package com.yourcompany.tsmapp
+package com.changyeon.tsmapp
 
 import android.app.Application
 import android.content.res.Configuration
