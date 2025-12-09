@@ -13,6 +13,7 @@ app.use(express.json());
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/auth', require('./routes/auth'));
 app.use('/api/routes', require('./routes/routes'));
+app.use('/api/recommendations', require('./routes/recommendations'));
 
 app.get('/', (req, res) => {
     res.send('서버가 실행중입니다!');

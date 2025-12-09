@@ -58,8 +58,8 @@ const profile = () => {
                 {
                     text: '로그아웃',
                     style: 'destructive',
-                    onPress: () => {
-                        logout();
+                    onPress: async () => {
+                        await logout(); // AsyncStorage 삭제 완료 대기
                         router.replace('/');
                     },
                 },
