@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DatePickerModal from '../components/date_picker_modal';
 import TimePickerModal from '../components/time_picker_modal';
 import { API_ENDPOINTS } from '../config/api';
+import Toast from 'react-native-toast-message';
 
 const SchAdd = () => {
     const { setActiveTab } = useNavigation();
@@ -186,14 +187,17 @@ const SchAdd = () => {
 
             if (result.success) {
                 const message = isEditMode ? '일정이 수정되었습니다.' : '일정이 저장되었습니다.';
-                Alert.alert('성공', message, [
-                    {
-                        text: '확인',
-                        onPress: () => {
-                            router.push('/sch_list'); // 저장/수정 완료 후 목록으로 이동
-                        },
-                    },
-                ]);
+                router.push('/sch_list'); // 저장/수정 완료 후 목록으로 이동
+                setTimeout(() => {
+                    Toast.show({
+                        type: 'success',
+                        text1: '성공',
+                        text2: message,
+                        position: 'top',
+                        visibilityTime: 2000,
+                        topOffset: 60,
+                    });
+                }, 300);
             } else {
                 Alert.alert('오류', result.message || '일정 저장에 실패했습니다.');
             }

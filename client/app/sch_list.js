@@ -10,6 +10,7 @@ import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
 import API_CONFIG from '../config/api';
 import { API_ENDPOINTS } from '../config/api';
+import DatePickerModal from '../components/date_picker_modal';
 
 const sch_List = () => {
     const router = useRouter();
@@ -19,6 +20,7 @@ const sch_List = () => {
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(false);
     const [scheduleData, setScheduleData] = useState({});
+    const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
     console.log('[sch_list] 렌더링 시 user 상태:', user);
 
@@ -156,6 +158,11 @@ const sch_List = () => {
         return `${year}년 ${month}월 ${day}일`;
     };
 
+    // 달력에서 날짜 선택 시 핸들러
+    const handleDateConfirm = (date) => {
+        setCurrentDate(date);
+    };
+
     // 교통수단 아이콘 가져오기
     const getTransportIcon = (type) => {
         switch (type) {
@@ -178,9 +185,14 @@ const sch_List = () => {
             <Stack.Screen options={{ headerShown: false }} />
             <View style={styles.topWhiteBox}>
                 <Btnsch_list_date direction="left" onPress={handlePrevDay} />
-                <Text style={styles.dateText}>
-                    {formatDate(currentDate)}
-                </Text>
+                <TouchableOpacity
+                    onPress={() => setIsDatePickerVisible(true)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.dateText}>
+                        {formatDate(currentDate)}
+                    </Text>
+                </TouchableOpacity>
                 <Btnsch_list_date direction="right" onPress={handleNextDay} />
             </View>
             <View style={styles.underWhiteBox}>
@@ -239,6 +251,15 @@ const sch_List = () => {
                     </ScrollView>
                 )}
             </View>
+
+            {/* 날짜 선택 모달 */}
+            <DatePickerModal
+                visible={isDatePickerVisible}
+                onClose={() => setIsDatePickerVisible(false)}
+                initialDate={currentDate}
+                onConfirm={handleDateConfirm}
+            />
+
             <Btm_nav_bar />
         </View>
 
