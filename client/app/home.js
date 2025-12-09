@@ -166,30 +166,14 @@ const home = () => {
         }
     };
 
-    // 현재 위치 및 날씨 가져오기 애뮬레이터에서 위치 설정 따로 해야됨 안하고 안된다고 하면 대가리
+    // 현재 위치 및 날씨 가져오기 - 인하공업전문대학 위치로 고정
     const fetchWeather = async () => {
         try {
-            // 위치 권한 요청
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                console.log('위치 권한이 거부되었습니다.');
-                return;
-            }
+            // 인하공업전문대학 고정 좌표 (인천 남동구)
+            const latitude = 37.4489;
+            const longitude = 126.7051;
 
-            // 현재 위치 가져오기
-            let currentLocation = await Location.getLastKnownPositionAsync({});
-
-            if (!currentLocation) {
-                console.log('마지막 위치 없음, 현재 위치 가져오는 중...');
-                currentLocation = await Location.getCurrentPositionAsync({
-                    accuracy: Location.Accuracy.Lowest,
-                });
-            }
-
-            setLocation(currentLocation);
-
-            const { latitude, longitude } = currentLocation.coords;
-            console.log('위치 정보:', latitude, longitude);
+            console.log('고정 위치 정보 (인하공업전문대학):', latitude, longitude);
 
             // OpenWeatherMap API 호출
             const response = await fetch(
@@ -254,6 +238,17 @@ const home = () => {
                                 <View style={styles.emptyContainer}>
                                     <Ionicons name="calendar-outline" size={60} color="#C7C7C7" />
                                     <Text style={styles.emptyText}>오늘은 일정이 없습니다</Text>
+                                    <Text style={styles.emptyDescription}>
+                                        일정을 추가하여 하루를 계획해보세요!
+                                    </Text>
+                                    <TouchableOpacity
+                                        style={styles.addScheduleButton}
+                                        onPress={() => router.push('/sch_add')}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                                        <Text style={styles.addScheduleButtonText}>일정 추가하기</Text>
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <View style={styles.allPlanSections}>
@@ -400,7 +395,7 @@ const styles = StyleSheet.create({
     },
     whiteBox: {
         width: 392,
-        height: 470,
+        minHeight: 470,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         elevation: 5,
@@ -408,6 +403,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
+        paddingBottom: 20,
     },
     header: {
         fontSize: 40,
@@ -440,18 +436,40 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         marginTop: 20,
+        minHeight: 200,
     },
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 60,
-        gap: 15,
-        flex: 1,
+        paddingVertical: 40,
+        gap: 12,
     },
     emptyText: {
         fontSize: 16,
         color: '#999',
         fontWeight: '500',
+    },
+    emptyDescription: {
+        fontSize: 14,
+        color: '#bbb',
+        textAlign: 'center',
+        marginTop: -8,
+        marginBottom: 8,
+    },
+    addScheduleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#7fe0faff',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        gap: 8,
+        marginTop: 10,
+    },
+    addScheduleButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#fff',
     },
     allPlanSections: {
         alignItems: 'center',

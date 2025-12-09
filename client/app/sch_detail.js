@@ -8,6 +8,7 @@ import { useNavigation } from '../contexts/navigationContext';
 import { useAuth } from '../contexts/authContext';
 import { API_ENDPOINTS } from '../config/api';
 import API_CONFIG from '../config/api';
+import Toast from 'react-native-toast-message';
 
 const sch_Detail = () => {
     const { setActiveTab } = useNavigation();
@@ -265,12 +266,17 @@ const sch_Detail = () => {
                             const result = await response.json();
 
                             if (result.success) {
-                                Alert.alert('성공', '일정이 삭제되었습니다.', [
-                                    {
-                                        text: '확인',
-                                        onPress: () => router.push('/sch_list'),
-                                    },
-                                ]);
+                                router.push('/sch_list');
+                                setTimeout(() => {
+                                    Toast.show({
+                                        type: 'success',
+                                        text1: '성공',
+                                        text2: '일정이 삭제되었습니다.',
+                                        position: 'top',
+                                        visibilityTime: 2000,
+                                        topOffset: 60,
+                                    });
+                                }, 300);
                             } else {
                                 Alert.alert('오류', result.message || '일정 삭제에 실패했습니다.');
                             }

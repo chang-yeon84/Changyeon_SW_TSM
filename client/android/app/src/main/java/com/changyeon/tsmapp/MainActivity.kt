@@ -1,4 +1,4 @@
-package com.yourcompany.tsmapp
+package com.changyeon.tsmapp
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
